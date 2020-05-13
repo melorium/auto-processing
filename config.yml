@@ -1,0 +1,13 @@
+server:
+  nms_address: license.avian.dk
+  nuix_path: C:\Program Files\Nuix\Nuix 8.4
+  username: user # Change this
+  password: Password123 # Change this
+  licencetype: enterprise-workstation
+nuix:
+  xmx: 24g
+  workers: 1
+  settings: C:\settings.json # Change this
+  process_profile_name: test
+  process_profile_path: C:\Processing profile.xml # Change this
+  

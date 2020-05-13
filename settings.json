@@ -1,0 +1,19 @@
+{
+    "case_directory": "C:\\DEMO", // Where the case should be created (if it doesnt exists it will be created)
+    "case_settings": {
+        "compound": false,
+        "name": "demo-case",
+        "description": "This is case ",
+        "investigator": "Gadget"
+    },
+    "evidence_settings": {
+        "name": "evidence_123",
+        "directory": "C:\\Users\\sja\\Desktop\\logs\\workstation\\export\\failed", // Evidence you want to ingest
+        "description": "this is the description for the evidence",
+        "encoding": "UTF-8",
+        "time_zone": "US/Pacific",
+        "custodian": "Suspect",
+        "locale": "en-US"
+    },
+    "processing_profile": true
+}
