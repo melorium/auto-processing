@@ -16,28 +16,58 @@ time_start = Time.now
 
 file = File.read(options[:settings])
 settings = JSON.parse(file)
+case_settings = settings["case_settings"]
+evidence_settings = settings["evidence_settings"]
 
 # Obtain the case factory
 case_factory = $utilities.getCaseFactory
 
-# Create variable for case directory
-case_directory = settings["case_directory"] + "\\" + settings["case_settings"]["name"] + Time.now.strftime("%Y%m%d%H%M%S")
+# Check if the user wants to add the case to a compound
+if settings["compound"]
+  compound_settings = settings["compound_case"].merge!(compound: true)
+  begin
+    # Try to open the compound case
+    compound = case_factory.open(compound_settings["directory"])
+    
+    # Handle the exception if the case doesnt exists
+    rescue java.io.IOException
+      puts("#{Time.now} Compound case doesnt exists - trying to create a new compound-case")
+      
+      begin
+        # Try to create the new compound-case
+        compound = case_factory.create(compound_settings["directory"], compound_settings)
+
+        # Handle the exception and exit program
+        rescue java.nio.file.FileAlreadyExistsException
+          puts("#{Time.now} Cant create compound case - Directory already exists - choose a new compound directory")
+          exit(false)
+      end
+
+  end
+  puts("#{Time.now} Compound case opened")
+end
+
+# Create variable for the simple-case directory
+case_directory = case_settings["directory"] + "\\" + case_settings["name"] + Time.now.strftime("%Y%m%d%H%M%S")
 
 # Create the case
-nuix_case = case_factory.create(case_directory, settings["case_settings"])
+nuix_case = case_factory.create(case_directory, case_settings)
 
 # Obtain a processor
 processor = nuix_case.create_processor
 
-evidence_container = processor.new_evidence_container(settings["evidence_settings"]["name"])
-evidence_container.add_file(settings["evidence_settings"]["directory"])
-evidence_container.set_description(settings["evidence_settings"]["description"])
-evidence_container.set_encoding(settings["evidence_settings"]["encoding"])
-evidence_container.set_time_zone(settings["evidence_settings"]["time_zone"])
-evidence_container.set_initial_custodian(settings["evidence_settings"]["custodian"])
-evidence_container.set_locale(settings["evidence_settings"]["locale"])
+# Loop through the different evidence and add it to their own container
+for evidence in evidence_settings
+  evidence_container = processor.new_evidence_container(evidence["name"])
+  evidence_container.add_file(evidence["directory"])
+  evidence_container.set_description(evidence["description"])
+  evidence_container.set_encoding(evidence["encoding"])
+  evidence_container.set_time_zone(evidence["time_zone"])
+  evidence_container.set_initial_custodian(evidence["custodian"])
+  evidence_container.set_locale(evidence["locale"])
 
-evidence_container.save
+  evidence_container.save
+end
 
 # Check if the profile exists in the store
 unless $utilities.get_processing_profile_store.contains_profile(options[:profile_name])
@@ -68,4 +98,15 @@ time_end = Time.now
 execution_time = time_end - time_start
 
 puts("#{Time.now} Execution time: " + execution_time.to_i.to_s + " seconds")
+
+
+# check if the case is compound just to be sure
+if compound.is_compound()
+  compound.add_child_case(nuix_case) # Add the newly processed case to the compound-case
+  puts("#{Time.now} Added case to compound")
+  compound.close()
+else
+  puts("#{Time.now} Did not add this case to a compound")
+end
+
 exit(true)

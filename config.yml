@@ -2,12 +2,40 @@ server:
   nms_address: license.avian.dk
   nuix_path: C:\Program Files\Nuix\Nuix 8.4
   username: user # Change this
-  password: Password123 # Change this
+  password: secretpw # Change this
   licencetype: enterprise-workstation
 nuix:
   xmx: 24g
   workers: 1
-  settings: C:\settings.json # Change this
   process_profile_name: test
-  process_profile_path: C:\Processing profile.xml # Change this
+  process_profile_path: C:\location\Processing profile.xml # Change this
+  settings:
+    compound: true
+    compound_case:
+      directory: C:\Cases\Case-1\Compound-1
+      name: new-compound-demo-case
+      description: This is a compound case
+      investigator: Simon
+    case:
+      directory: C:\Cases\Case-1\Single-1
+      name: demo-case3
+      description: This is a single case
+      investigator: Simon
+    evidence_store:
+      - name: evidence_1
+        directory: C:\Master\Evidence\albert_meyers_000_1_1.pst
+        description: this is the description for the evidence
+        encoding: UTF-8
+        time_zone: US/Pacific
+        custodian: Suspect
+        locale: en-US
+      - name: evidence_2
+        directory: C:\Folder\Evidence\kate_symes\kate_symes_003_1_1.pst
+        description: this is the description for the evidence
+        encoding: UTF-8
+        time_zone: US/Pacific
+        custodian: Suspect
+        locale: en-US
+  switches:
+    - -Dnuix.loglevel=DEBUG
   
