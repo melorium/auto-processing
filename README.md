@@ -1,4 +1,4 @@
-# auto-processing
+# Auto-processing
 The purpose of this is to make Avian Digital Forensics able to deliver automated workflows to its Nuix customers
 
 # License
