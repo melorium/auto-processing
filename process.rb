@@ -18,6 +18,7 @@ file = File.read(options[:settings])
 settings = JSON.parse(file)
 case_settings = settings["case_settings"]
 evidence_settings = settings["evidence_settings"]
+sub_steps = settings["sub_steps"]
 
 # Obtain the case factory
 case_factory = $utilities.getCaseFactory
@@ -56,7 +57,6 @@ nuix_case = case_factory.create(case_directory, case_settings)
 # Obtain a processor
 processor = nuix_case.create_processor
 
-# Loop through the different evidence and add it to their own container
 for evidence in evidence_settings
   evidence_container = processor.new_evidence_container(evidence["name"])
   evidence_container.add_file(evidence["directory"])
@@ -81,7 +81,6 @@ end
 processor.set_processing_profile(options[:profile_name])
 puts("#{Time.now} Processing-profile: #{options[:profile_name]} has been set to the processor")
 
-
 # Count how many items have been processed
 processed_item_count = 0
 processor.when_item_processed do |processed_item|
@@ -99,6 +98,34 @@ execution_time = time_end - time_start
 
 puts("#{Time.now} Execution time: " + execution_time.to_i.to_s + " seconds")
 
+for sub_step in sub_steps
+  if sub_step["type"] == "script"
+  
+    if sub_step["name"] == "search_and_tag"
+      require File.join(settings["working_path"], "scripts", sub_step["name"])
+      search_and_tag(nuix_case, sub_step["search"], sub_step["tag"])
+    end
+
+    if sub_step["name"] == "ocr"
+      # Check if the profile exists in the store
+      unless $utilities.get_ocr_profile_store.contains_profile(sub_step["profile"])
+        # Import the profile
+        puts("#{Time.now} Did not find the requested ocr-profile in the profile-store")
+        puts("#{Time.now} Importing new ocr-profile #{sub_step["profile"]}}")
+        $utilities.get_ocr_profile_store.import_profile(sub_step["profile_location"], sub_step["profile"])
+        puts("#{Time.now} OCR-profile has been imported")
+      end
+      # Set the profile to the processor
+      ocr_processor = $utilities.createOcrProcessor
+      ocr_processor.set_ocr_profile(sub_step["profile"])
+      puts("#{Time.now} OCR-profile: #{sub_step["profile"]} has been set to the processor")
+
+      require File.join("C:\\Users\\sja\\Desktop\\script", 'scripts', sub_step["name"])
+      ocr(ocr_processor, nuix_case, sub_step["search"])
+
+    end
+  end
+end
 
 # check if the case is compound just to be sure
 if compound.is_compound()
