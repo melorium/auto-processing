@@ -36,6 +36,16 @@ nuix:
         time_zone: US/Pacific
         custodian: Suspect
         locale: en-US
+    sub_steps:
+      - type: script
+        name: search_and_tag
+        search: kind:email
+        tag: hello
+      - type: script
+        name: ocr
+        profile: 
+        search: kind:document not content:*
+
   switches:
     - -Dnuix.loglevel=DEBUG
   
