@@ -1,51 +1,88 @@
-server:
+server:  
   nms_address: license.avian.dk
   nuix_path: C:\Program Files\Nuix\Nuix 8.4
-  username: user # Change this
-  password: secretpw # Change this
+  
+  # Set username and password - if the NMS is connected to AD-domain it will automatically use your AD-credentials
+  
+  # username: user # Change this
+  # password: secretpw # Change this
+  
   licencetype: enterprise-workstation
+
 nuix:
   xmx: 24g
   workers: 1
+  
+  # Set a processing profile and make sure to name it, so we don't get duplicates
   process_profile_name: test
   process_profile_path: C:\location\Processing profile.xml # Change this
+  
+  # Configure the settings for the case
   settings:
-    compound: true
+    
+    # Change to true if you want to add the single-case being processed to a compound case
+    compound: true 
+    
+    # If compound is true, set the settings for the compound case
     compound_case:
+      
+      # If the case exists in the specified directory it will open it, otherwise create a new case
       directory: C:\Cases\Case-1\Compound-1
+      
       name: new-compound-demo-case
       description: This is a compound case
       investigator: Simon
+
+    # Settings for the case
     case:
+      # Specify the directory (script will create a new sub-directory in the specified)
       directory: C:\Cases\Case-1\Single-1
+      
       name: demo-case3
       description: This is a single case
       investigator: Simon
+    
+    # Add multiple evidences to the process
     evidence_store:
-      - name: evidence_1
-        directory: C:\Master\Evidence\albert_meyers_000_1_1.pst
-        description: this is the description for the evidence
-        encoding: UTF-8
-        time_zone: US/Pacific
-        custodian: Suspect
-        locale: en-US
-      - name: evidence_2
-        directory: C:\Folder\Evidence\kate_symes\kate_symes_003_1_1.pst
-        description: this is the description for the evidence
-        encoding: UTF-8
-        time_zone: US/Pacific
-        custodian: Suspect
-        locale: en-US
+      
+      # Evidence-examples
+     
+      # - name: evidence_1
+      #   directory: C:\Master\Evidence\albert_meyers_000_1_1.pst
+      #   description: this is the description for the evidence
+      #   encoding: UTF-8
+      #   time_zone: US/Pacific
+      #   custodian: Suspect
+      #   locale: en-US
+
+      # Set the second evidence, notify the "-" before the name, means that this is a new evidence
+      
+      # - name: evidence_2
+      #   directory: C:\Folder\Evidence\kate_symes\kate_symes_003_1_1.pst
+      #   description: this is the description for the evidence
+      #   encoding: UTF-8
+      #   time_zone: US/Pacific
+      #   custodian: Suspect
+      #   locale: en-US
+
+    # Add subsequent steps to the process
     sub_steps:
-      - type: script
-        name: search_and_tag
-        search: kind:email
-        tag: hello
-      - type: script
-        name: ocr
-        profile: 
-        search: kind:document not content:*
+      
+      # Subsquent step-examples
+
+      # Example for search and tag-script
+      # - type: script
+      #   name: search_and_tag
+      #   search: kind:email
+      #   tag: hello
+
+      # Example for OCR-script
+      # - type: script
+      #   name: ocr
+      #   profile: 
+      #   search: kind:document not content:*
 
   switches:
+    # - -Dnuix.processing.sharedTempDirectory=<path> ## Change this to override worker temp location otherwise defined in the processing profile
     - -Dnuix.loglevel=DEBUG
   
