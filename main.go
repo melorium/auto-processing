@@ -14,12 +14,22 @@ import (
 func main() {
 	log.Println("Initializing script")
 
-
 	cfg := config.GetConfig(".\\config.yml")
-	cfg.Validate()
+	if err := cfg.Validate(); err != nil {
+		log.Println(err)
+		os.Exit(2)
+	}
 
 	tmpDir := os.TempDir()
 	defer os.RemoveAll(tmpDir)
+
+	path, err := os.Getwd()
+	if err != nil {
+		log.Println("cant get working dir:", err)
+		os.Exit(2)
+	}
+
+	cfg.Nuix.Settings.WorkingPath = path
 	
 	file, err := json.MarshalIndent(cfg.Nuix.Settings, "", " ")
 	if err != nil {
@@ -34,12 +44,6 @@ func main() {
 	}
 	
 	program := cfg.Server.NuixPath + "\\nuix_console.exe"
-	
-	path, err := os.Getwd()
-	if err != nil {
-		log.Println("cant get working directory")	
-		os.Exit(2)
-	}
 
 	cmd := exec.Command(
 		program,
@@ -47,6 +51,8 @@ func main() {
 		"-Dnuix.registry.servers=" + cfg.Server.NmsAddress,
 		"-licencesourcetype",
 		"server",
+		"-licencesourcelocation",
+		cfg.Server.NmsAddress + ":27443",
 		"-licencetype",
 		cfg.Server.Licencetype,
 		"-licenceworkers",
