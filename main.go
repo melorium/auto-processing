@@ -2,21 +2,32 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/avian-digital-forensics/auto-processing/config"
 )
 
+
 func main() {
-	log.Println("Initializing script")
+	logger := &logrus.Logger{
+		Out:   io.MultiWriter(os.Stderr),
+		Level: logrus.DebugLevel,
+		Formatter: new(logrus.JSONFormatter),
+	}
+	log := logger.WithField("source", "main.go")
+	
+	log.Info("Initializing script")
 
 	cfg := config.GetConfig(".\\config.yml")
+	log.Info("Validating config")
 	if err := cfg.Validate(); err != nil {
-		log.Println(err)
+		log.Error(err)
 		os.Exit(2)
 	}
 
@@ -25,7 +36,7 @@ func main() {
 
 	path, err := os.Getwd()
 	if err != nil {
-		log.Println("cant get working dir:", err)
+		log.Error("cant get working dir:", err)
 		os.Exit(2)
 	}
 
@@ -33,13 +44,13 @@ func main() {
 	
 	file, err := json.MarshalIndent(cfg.Nuix.Settings, "", " ")
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		os.Exit(2)
 	}
 
 	tmpFile := tmpDir + "/settings.json"
 	if err = ioutil.WriteFile(tmpFile, file, 0644); err != nil {
-		log.Println(err)
+		log.Error(err)
 		os.Exit(2)
 	}
 	
@@ -57,11 +68,8 @@ func main() {
 		cfg.Server.Licencetype,
 		"-licenceworkers",
 		cfg.Nuix.Workers,
+		"-signout",
 		path + "\\process.rb",
-		"-p",
-		cfg.Nuix.ProcessProfilePath,
-		"-n",
-		cfg.Nuix.ProcessProfileName,
 		"-s",
 		tmpFile,
 		strings.Join(cfg.Nuix.Switches , " "),
@@ -76,14 +84,14 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	
-	log.Println("Executing Nuix with command: ", cmd)
+	log.Info("Executing Nuix with command: ", cmd)
 
 	if err := cmd.Start(); err != nil {
-		log.Println("Failed to run program", err)	
+		log.Error("Failed to run program", err)	
 		os.Exit(2)
 	}
 	if err := cmd.Wait(); err != nil {
-		log.Println("Failed to run program", err)	
+		log.Error("Failed to run program", err)	
 		os.Exit(2)
 	}
 }
