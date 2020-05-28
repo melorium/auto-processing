@@ -24,13 +24,13 @@ type ServerCfg struct {
 type NuixCfg struct {
 	Xmx string `yaml:"xmx"`
 	Workers string `yaml:"workers"`
-	ProcessProfilePath string `yaml:"process_profile_path"`
-	ProcessProfileName string `yaml:"process_profile_name"`
 	Settings *Settings `yaml:"settings"`
 	Switches []string `yaml:"switches"`
 }
 
 type Settings struct {
+	ProcessProfilePath string `yaml:"process_profile_path" json:"process_profile_path"`
+	ProcessProfileName string `yaml:"process_profile_name" json:"process_profile_name"`
 	Compound bool `yaml:"compound" json:"compound"`
 	CompoundCase *Case `yaml:"compound_case" json:"compound_case"`
 	Case *Case `yaml:"case" json:"case_settings"`
@@ -62,6 +62,8 @@ type SubStep struct {
 	ProfileLocation string `yaml:"profile_location" json:"profile_location"`
 	Search string `yaml:"search" json:"search"`
 	Tag string `yaml:"tag" json:"tag"`
+	ExportPath string `yaml:"export_path" json:"export_path"`
+	Reason string `yaml:"reason" json:"reason"`
 }
 
 func (cfg *Config) Validate() error {
@@ -73,7 +75,7 @@ func (cfg *Config) Validate() error {
 	}
 	
 	// Check if the process-profile is readable
-	if ok, err := isReadable(cfg.Nuix.ProcessProfilePath); !ok && err != nil {
+	if ok, err := isReadable(cfg.Nuix.Settings.ProcessProfilePath); !ok && err != nil {
 		return err
 	}
 

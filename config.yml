@@ -13,12 +13,12 @@ nuix:
   xmx: 24g
   workers: 1
   
-  # Set a processing profile and make sure to name it, so we don't get duplicates
-  process_profile_name: test
-  process_profile_path: C:\location\Processing profile.xml # Change this
-  
   # Configure the settings for the case
   settings:
+
+    # Set a processing profile and make sure to name it, so we don't get duplicates
+    process_profile_name: test
+    process_profile_path: C:\location\Processing profile.xml # Change this
     
     # Change to true if you want to add the single-case being processed to a compound case
     compound: true 
@@ -82,7 +82,18 @@ nuix:
       #   profile: 
       #   search: kind:document not content:*
 
+      # Example to exclude items
+      # - type: script
+      #   name: exclude
+      #   search: kind:email
+      #   reason: not_needed
+
+      # Example for exporting sub-case
+      # - type: sub_case
+      #   search: kind:email
+      #   export_path: C:\Users\sja\Desktop\REVIEW
+
   switches:
     # - -Dnuix.processing.sharedTempDirectory=<path> ## Change this to override worker temp location otherwise defined in the processing profile
-    - -Dnuix.loglevel=DEBUG
+    # - -Dnuix.loglevel=DEBUG
   
