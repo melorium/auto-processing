@@ -9,7 +9,7 @@ def main(settings, single_case)
     
       if sub_step["name"] == "search_and_tag"
         require File.join(__dir__, sub_step["name"])
-        search_and_tag(single_case, sub_step["search"], sub_step["tag"], "C:\\Users\\sja\\Download\\Attachment.json")
+        search_and_tag(single_case, sub_step["search"], sub_step["tag"])
       end
   
       if sub_step["name"] == "ocr"
