@@ -11,6 +11,14 @@ import (
 type Config struct {
 	Server *ServerCfg `yaml:"server"`
 	Nuix *NuixCfg `yaml:"nuix"`
+	Queue []*Queue `yaml:"queue"`
+}
+
+type Queue struct {
+	Config string `yaml:"config"`
+	Active bool `yaml:"active"`
+	Successful bool `yaml:"successful"`
+	Failed bool `yaml:"failed"`
 }
 
 type ServerCfg struct {
@@ -63,7 +71,9 @@ type SubStep struct {
 	Search string `yaml:"search" json:"search"`
 	Tag string `yaml:"tag" json:"tag"`
 	ExportPath string `yaml:"export_path" json:"export_path"`
+	Compound *Case `yaml:"compound_case"`
 	Reason string `yaml:"reason" json:"reason"`
+	Files []string `yaml:"files" json:"files"`
 }
 
 func (cfg *Config) Validate() error {
@@ -103,9 +113,69 @@ func (cfg *Config) Validate() error {
 				return err
 			}
 		}
+		if len(subStep.ExportPath) > 0 {
+			if ok, err := isWritable(subStep.ExportPath); !ok && err != nil {
+				return err
+			}
+		}
+	}
+
+	checkSwitch := func(nuixSwitch, formatted string) error {
+		if nuixSwitch[0:len(formatted)] == formatted {
+			if ok, err := isWritable(nuixSwitch[len(formatted):]); !ok && err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	for _, nuixSwitch := range cfg.Nuix.Switches {
+		// Check if the shared temp dir is writable
+		sharedTempDir := "-Dnuix.processing.sharedTempDirectory="
+		if err := checkSwitch(nuixSwitch, sharedTempDir); err != nil {
+			return err
+		}
+		// Check if the shared temp dir is writable
+		workerTempDir := "-Dnuix.worker.tmpdir="
+		if err := checkSwitch(nuixSwitch, workerTempDir); err != nil {
+			return err
+		}
+		// Check if the shared temp dir is writable
+		javaTempDir := "-Djava.io.tmpdir="
+		if err := checkSwitch(nuixSwitch, javaTempDir); err != nil {
+			return err
+		}
+		// Check if the shared temp dir is writable
+		exportSpoolDir := "-Dnuix.export.spoolDir="
+		if err := checkSwitch(nuixSwitch, exportSpoolDir); err != nil {
+			return err
+		}
+		// Check if the log dir is writable
+		logDir := "-Dnuix.logdir="
+		if err := checkSwitch(nuixSwitch, logDir); err != nil {
+			return err
+		}
 	}
 	
 	return nil
+}
+
+func (q *Queue) SetActive() {
+	q.Active = true
+	q.Failed = false
+	q.Successful = false
+}
+
+func (q *Queue) SetSuccessful() {
+	q.Successful = true
+	q.Active = false
+	q.Failed = false
+}
+
+func (q *Queue) SetFailed() {
+	q.Failed = true
+	q.Successful = false
+	q.Active = false
 }
 
 func isWritable(path string) (bool, error) {
@@ -113,17 +183,14 @@ func isWritable(path string) (bool, error) {
     if err != nil {
         if os.IsNotExist(err) {
 			if err := os.MkdirAll(path, os.ModePerm); err != nil {
-				log.Println("failed to create path at:", path)
-				return false, err
+				return false, fmt.Errorf("failed to create path at: %s - %v", path, err)
 			}
 		} else {
-			log.Println("error checking filepath at:", path)
-			return false, err
+			return false, fmt.Errorf("error checking filepath at: %s - %v", path, err)
 		}
 		info, err = os.Stat(path)
 		if err != nil {
-			log.Println("error checking filepath at:", path)
-			return false, err
+			return false, fmt.Errorf("error checking filepath at: %s", path)
 		}
     }
 
@@ -143,33 +210,30 @@ func isReadable(path string) (bool, error) {
 	file, err := os.OpenFile(path, os.O_RDONLY, 0666)
 	if err != nil {
 		if os.IsPermission(err) {
-			log.Println("Unable to read from ", path)
-			return false, err
+			return false, fmt.Errorf("Unable to read from: %s - %v", path, err)
 		}
-		log.Println("problem with checking the file permission for:", path)
-		return false, err
+		return false, fmt.Errorf("problem with checking the file permission for: %s - %v", path, err)
 	}
 	file.Close()
 	return true, nil
 }
 
-func readYAML(path string, cfg *Config) {
+func readYAML(path string, cfg *Config) error {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Println(err)
-		os.Exit(2)
+		return err
 	}
 
 	decoder := yaml.NewDecoder(file)
 	if err = decoder.Decode(cfg); err != nil {
-		log.Println(err)
-		os.Exit(2)
+		return err
 	}
+	return nil
 }
 
 // GetConfig returns data from config.yml
-func GetConfig(path string) *Config {
+func GetConfig(path string) (*Config, error) {
 	var cfg Config
-	readYAML(path, &cfg)
-	return &cfg
+	err := readYAML(path, &cfg)
+	return &cfg, err
 }

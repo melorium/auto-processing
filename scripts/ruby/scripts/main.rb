@@ -9,7 +9,7 @@ def main(settings, single_case)
     
       if sub_step["name"] == "search_and_tag"
         require File.join(__dir__, sub_step["name"])
-        search_and_tag(single_case, sub_step["search"], sub_step["tag"])
+        search_and_tag(single_case, sub_step["search"], sub_step["tag"], sub_step["files"])
       end
   
       if sub_step["name"] == "ocr"
@@ -39,7 +39,7 @@ def main(settings, single_case)
     end
   
     if sub_step["type"] == "sub_case"
-      
+      # ADD sub_case to review-compound
       sub_directory = sub_step["export_path"] + "\\" + single_case.get_name + " - REVIEW"
       if sub_step["export_path"].length < 1
         $logger.warn("Export path not provided for subcase export")
