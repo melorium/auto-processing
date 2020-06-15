@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -37,10 +36,12 @@ type NuixCfg struct {
 }
 
 type Settings struct {
-	ProcessProfilePath string `yaml:"process_profile_path" json:"process_profile_path"`
-	ProcessProfileName string `yaml:"process_profile_name" json:"process_profile_name"`
+	CaseLocation string `yaml:"case_location" json:"case_location"`
+	Profile string `yaml:"profile" json:"profile"`
+	ProfileLocation string `yaml:"profile_location" json:"profile_location"`
 	Compound bool `yaml:"compound" json:"compound"`
 	CompoundCase *Case `yaml:"compound_case" json:"compound_case"`
+	ReviewCompound *Case `yaml:"review_compound" json:"review_compound"`
 	Case *Case `yaml:"case" json:"case_settings"`
 	EvidenceStore []*Evidence `yaml:"evidence_store" json:"evidence_settings"`
 	SubSteps []*SubStep `yaml:"sub_steps" json:"sub_steps"`
@@ -71,32 +72,50 @@ type SubStep struct {
 	Search string `yaml:"search" json:"search"`
 	Tag string `yaml:"tag" json:"tag"`
 	ExportPath string `yaml:"export_path" json:"export_path"`
-	Compound *Case `yaml:"compound_case"`
+	Case Case `yaml:"case" json:"case"`
 	Reason string `yaml:"reason" json:"reason"`
 	Files []string `yaml:"files" json:"files"`
 }
 
 func (cfg *Config) Validate() error {
-	log.Println("Validating config")
-	
 	// Check if the nuix-path exists
 	if ok, err := isReadable(cfg.Server.NuixPath); !ok && err != nil {
-		return err
+		return fmt.Errorf("No read access to NuixPath: %v", err)
 	}
 	
 	// Check if the process-profile is readable
-	if ok, err := isReadable(cfg.Nuix.Settings.ProcessProfilePath); !ok && err != nil {
-		return err
+	if ok, err := isReadable(cfg.Nuix.Settings.ProfileLocation); !ok && err != nil {
+		return fmt.Errorf("No write read to ProfileLocation: %v", err)
 	}
 
-	// Check if the compound-case directory is writable
-	if ok, err := isWritable(cfg.Nuix.Settings.CompoundCase.Directory); !ok && err != nil {
-		return err
+	// Check if the master case location is writable
+	if ok, err := isWritable(cfg.Nuix.Settings.CaseLocation); !ok && err != nil {
+		return fmt.Errorf("No write access to CaseLocation: %v", err)
 	}
 
-	// Check if the case directory is writable
-	if ok, err := isWritable(cfg.Nuix.Settings.Case.Directory); !ok && err != nil {
-		return err
+	cfg.Nuix.Settings.CompoundCase.Directory = cfg.Nuix.Settings.CaseLocation + "/compound"
+
+	// The user might need to configure the directory for review-compound
+	if len(cfg.Nuix.Settings.ReviewCompound.Directory) == 0 {
+		cfg.Nuix.Settings.ReviewCompound.Directory = fmt.Sprintf("%s/review-compound", cfg.Nuix.Settings.CaseLocation)
+		cfg.Nuix.Settings.ReviewCompound.Name = "review-compound"
+	} else {
+		// Check that review-compound dir is writable
+		if ok, err := isWritable(cfg.Nuix.Settings.ReviewCompound.Directory); !ok && err != nil {
+			return fmt.Errorf("No write access to ReviewCompound.Directory: %v", err)
+		}
+	}
+	
+	// set a single-case name and directory based on directory availability
+	collection := 1
+	for {
+		singleCaseDir := fmt.Sprintf("%s/single-c%d", cfg.Nuix.Settings.CaseLocation, collection)
+		if _, err := os.Stat(singleCaseDir); os.IsNotExist(err) {
+			cfg.Nuix.Settings.Case.Directory = singleCaseDir
+			cfg.Nuix.Settings.Case.Name = fmt.Sprintf("single-c%d", collection)
+			break
+		}
+		collection++
 	}
 
 	// Check if the evidences are readable
@@ -106,20 +125,37 @@ func (cfg *Config) Validate() error {
 		}
 	}
 
-	// Check if the profile is readable for the sub-steps
+	// Check the configuration for the sub-steps
 	for _, subStep := range cfg.Nuix.Settings.SubSteps {
-		if len(subStep.ProfileLocation) > 0 {
+		// Check if the profile location if the user has provided one
+		if len(subStep.ProfileLocation) != 0 {
 			if ok, err := isReadable(subStep.ProfileLocation); !ok && err != nil {
 				return err
 			}
 		}
-		if len(subStep.ExportPath) > 0 {
-			if ok, err := isWritable(subStep.ExportPath); !ok && err != nil {
+
+		// Make sure to have right-access to the sub-case directory
+		if len(subStep.Case.Directory) != 0 {
+			if ok, err := isWritable(subStep.Case.Directory); !ok && err != nil {
 				return err
 			}
+			break
+		}
+	
+		// Set automatic directory and name for the subcase (since it has not been configured by the user)
+		review := 1
+		for {
+			reviewCaseDir := fmt.Sprintf("%s/review-c%d-r%d", cfg.Nuix.Settings.CaseLocation, collection, review)
+			if _, err := os.Stat(reviewCaseDir); os.IsNotExist(err) {
+				subStep.Case.Directory = reviewCaseDir
+				subStep.Case.Name = fmt.Sprintf("review-c%d-r%d", collection, review)
+				break
+			}
+			review++
 		}
 	}
 
+	// Function to check write-access for directory from the switches
 	checkSwitch := func(nuixSwitch, formatted string) error {
 		if nuixSwitch[0:len(formatted)] == formatted {
 			if ok, err := isWritable(nuixSwitch[len(formatted):]); !ok && err != nil {

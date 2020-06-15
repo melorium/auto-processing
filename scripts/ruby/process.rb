@@ -10,23 +10,22 @@ class Case
     def initialize(settings)
         @case_factory = $utilities.getCaseFactory
         @settings = settings
-        @compound_case = nil
     end
 
-    def create_compound
-        compound_settings = @settings["compound_case"].merge!(compound: true)
+    def create_compound(compound)
+        compound_settings = compound.merge!(compound: true)
         
         begin
-        # Try to open the compound case
-        @compound_case = @case_factory.open(compound_settings["directory"])
+            # Try to open the compound case
+            compound_case = @case_factory.open(compound_settings["directory"])
         
         # Handle the exception if the case doesnt exists
         rescue java.io.IOException
             $logger.warn("Compound case doesnt exists - trying to create a new compound-case")
             
             begin
-            # Try to create the new compound-case
-            @compound_case = @case_factory.create(compound_settings["directory"], compound_settings)
+                # Try to create the new compound-case
+                compound_case = @case_factory.create(compound_settings["directory"], compound_settings)
 
             rescue java.io.IOException => exception
                 $logger.fatal("problem creating new case, case might already be open: #{exception.backtrace}")
@@ -38,24 +37,27 @@ class Case
                 exit(false)
             end
 
-            $logger.info("#Compound case opened")
+            $logger.info("Compound case opened")
         end
+        return compound_case
     end
 
     def create_single
         # Create variable for the simple-case directory
-        case_name = @settings["case_settings"]["name"] + " " + Time.now.strftime("%Y%m%d%H%M%S")
-        case_directory = @settings["case_settings"]["directory"] + "\\" + case_name
+        case_name = @settings["case_settings"]["name"]
+        case_directory = @settings["case_settings"]["directory"]
         $logger.info("creating single-case to: #{case_directory}")
         return @case_factory.create(case_directory, @settings["case_settings"])
     end
 
-    def tear_down
+    def tear_down(compound_case, single_case, review_compound)
         # check if the case is compound just to be sure
-        unless @compound_case.nil? || @compound_case.is_compound()
-            @compound_case.add_child_case(@single_case) # Add the newly processed case to the compound-case
+        unless compound_case.nil?
+          $logger.debug("Adding case to compound")
+          compound_case.add_child_case(single_case) # Add the newly processed case to the compound-case
           $logger.info("Added case to compound")
-          @compound_case.close()
+          compound_case.close()
+          review_compound.close()
         else
           $logger.debug("Did not add case to compound")
         end
@@ -96,16 +98,16 @@ class Processor
         # processor.set_processing_settings(workerItemCallback: "ruby:"+File.read(path_to_wss))
     
         # Check if the profile exists in the store
-        unless $utilities.get_processing_profile_store.contains_profile(@settings["process_profile_name"])
+        unless $utilities.get_processing_profile_store.contains_profile(@settings["profile"])
             # Import the profile
             $logger.debug("Did not find the requested processing-profile in the profile-store")
-            $logger.info("Importing new processing-profile #{@settings["process_profile_name"]}}")
-            $utilities.get_processing_profile_store.import_profile(@settings["process_profile_path"], @settings["process_profile_name"])
+            $logger.info("Importing new processing-profile #{@settings["profile"]}}")
+            $utilities.get_processing_profile_store.import_profile(@settings["profile_location"], @settings["profile"])
             $logger.info("Processing-profile has been imported")
         end
         # Set the profile to the processor
-        @processor.set_processing_profile(@settings["process_profile_name"])
-        $logger.info("Processing-profile: #{@settings["process_profile_name"]} has been set to the processor")
+        @processor.set_processing_profile(@settings["profile"])
+        $logger.info("Processing-profile: #{@settings["profile"]} has been set to the processor")
     end
 
     def run
@@ -121,9 +123,11 @@ class Processor
         $logger.info("Processing has completed")
     end
         
-    def run_scripts(single_case)
-        require File.join(@settings["working_path"], "scripts\\ruby\\scripts", "main.rb")
-        main(@settings["sub_steps"], single_case)
+    def run_scripts(single_case, compound_case)
+        unless @settings["sub_steps"].nil?
+            require File.join(@settings["working_path"], "scripts\\ruby\\scripts", "main.rb")
+            main(@settings["sub_steps"], single_case, compound_case)
+        end
     end
 end
 
@@ -143,7 +147,8 @@ begin
 
     case_factory = Case.new(settings)
     if settings["compound"]
-        case_factory.create_compound
+        compound_case = case_factory.create_compound(settings["compound_case"])
+        review_compound = case_factory.create_compound(settings["review_compound"])
     end
     single_case = case_factory.create_single
 
@@ -151,9 +156,9 @@ begin
     processor.add_evidence
     processor.set_profile
     processor.run
-    processor.run_scripts(single_case)
+    processor.run_scripts(single_case, review_compound)
 
-    case_factory.tear_down
+    case_factory.tear_down(compound_case, single_case, review_compound)
 
     time_end = Time.now
     execution_time = time_end - time_start

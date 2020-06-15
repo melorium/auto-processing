@@ -32,6 +32,7 @@ func main() {
 		log.Error("Failed to get config: %s - %v", *cfgPath, err)
 		os.Exit(2)
 	}
+
 	log.Info("Validating config")
 	if err := cfg.Validate(); err != nil {
 		log.Error(err)
