@@ -27,8 +27,8 @@ func Get(source string) (*logrus.Entry, *os.File) {
 	}
 
 	logger := &logrus.Logger{
-		Out:   io.MultiWriter(os.Stdout, logFile),
-		Level: logrus.DebugLevel,
+		Out:       io.MultiWriter(os.Stdout, logFile),
+		Level:     logrus.DebugLevel,
 		Formatter: new(logrus.JSONFormatter),
 	}
 	log := logger.WithField("source", source)
