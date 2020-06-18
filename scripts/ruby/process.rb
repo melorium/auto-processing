@@ -94,17 +94,6 @@ class Processor
 
     def set_profile
         $logger.info("Puts the profile to the processor")
-        # Set WSS to the processing settings
-        # processor.set_processing_settings(workerItemCallback: "ruby:"+File.read(path_to_wss))
-    
-        # Check if the profile exists in the store
-        unless $utilities.get_processing_profile_store.contains_profile(@settings["profile"])
-            # Import the profile
-            $logger.debug("Did not find the requested processing-profile in the profile-store")
-            $logger.info("Importing new processing-profile #{@settings["profile"]}}")
-            $utilities.get_processing_profile_store.import_profile(@settings["profile_location"], @settings["profile"])
-            $logger.info("Processing-profile has been imported")
-        end
         # Set the profile to the processor
         @processor.set_processing_profile(@settings["profile"])
         $logger.info("Processing-profile: #{@settings["profile"]} has been set to the processor")

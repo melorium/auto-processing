@@ -13,14 +13,6 @@ def main(settings, single_case, review_compound)
       end
   
       if sub_step["name"] == "ocr"
-        # Check if the profile exists in the store
-        unless $utilities.get_ocr_profile_store.contains_profile(sub_step["profile"])
-          # Import the profile
-          $logger.debug("Did not find the requested ocr-profile in the profile-store")
-          $logger.info("Importing new ocr-profile #{sub_step["profile"]}}")
-          $utilities.get_ocr_profile_store.import_profile(sub_step["profile_location"], sub_step["profile"])
-          $logger.info("OCR-profile has been imported")
-        end
         # Set the profile to the processor
         ocr_processor = $utilities.createOcrProcessor
         ocr_processor.set_ocr_profile(sub_step["profile"])
@@ -36,14 +28,6 @@ def main(settings, single_case, review_compound)
       end
 
       if sub_step["name"] == "reload"
-        unless $utilities.get_processing_profile_store.contains_profile(sub_step["profile"])
-          # Import the profile
-          $logger.debug("Did not find the requested processing-profile in the profile-store")
-          $logger.info("Importing new processing-profile #{sub_step["profile"]}}")
-          $utilities.get_processing_profile_store.import_profile(sub_step["profile_location"], sub_step["profile"])
-          $logger.info("Processing-profile has been imported")
-        end
-      
         # Set the profile to the processor
         reload_processor = single_case.create_processor
         reload_processor.set_processing_profile(sub_step["profile"])
