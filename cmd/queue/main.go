@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	sleepMinutes = 5
+	sleepMinutes       = 5
 	sleepMinutesFailed = 2
 )
 
@@ -53,20 +53,20 @@ func updateQueue(path string, cfg *config.Config) error {
 func queue(log *logrus.Entry, cfgPath *string) {
 	log.Info("Starting queue")
 	for {
-			cfg, err := config.GetConfig(*cfgPath)
-			if err != nil {
-				log.Fatalf("Could not open the config - %v", err)
-				os.Exit(2)
-			}
-			if len(cfg.Queue) < 1 {
-				log.Debug("Queue is empty - go back to sleep")
-				continue
-			}
-		
-			log.Debug("Looking for queue")
-			loopQueue(log, cfg, cfgPath)
-			log.Debug("Going back to sleep")
-			time.Sleep(time.Duration(sleepMinutes * time.Minute))
+		cfg, err := config.GetConfig(*cfgPath)
+		if err != nil {
+			log.Fatalf("Could not open the config - %v", err)
+			os.Exit(2)
+		}
+		if len(cfg.Queue) < 1 {
+			log.Debug("Queue is empty - go back to sleep")
+			continue
+		}
+
+		log.Debug("Looking for queue")
+		loopQueue(log, cfg, cfgPath)
+		log.Debug("Going back to sleep")
+		time.Sleep(time.Duration(sleepMinutes * time.Minute))
 	}
 }
 
@@ -95,7 +95,7 @@ func loopQueue(log *logrus.Entry, cfg *config.Config, cfgPath *string) {
 			continue
 		}
 
-		cmd := exec.Command("./auto-processing.exe", "--cfg=" + queue.Config)
+		cmd := exec.Command("./auto-processing.exe", "--cfg="+queue.Config)
 		if err := cmd.Start(); err != nil {
 			log.Error("Failed to run program", err)
 			queue.SetFailed()
