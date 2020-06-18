@@ -22,7 +22,7 @@ func main() {
 	defer logFile.Close()
 
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	cfgPath := flags.String("cfg", "./config.yml", "filepath for the config")
+	cfgPath := flags.String("cfg", "./configs/queue.yml", "filepath for the config")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Error(err)
 		os.Exit(2)

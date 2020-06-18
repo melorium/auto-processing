@@ -20,7 +20,7 @@ func main() {
 	log.Info("Initializing script")
 
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	cfgPath := flags.String("cfg", "/configs/config.yml", "filepath for the config")
+	cfgPath := flags.String("cfg", "./configs/auto-processing.yml", "filepath for the config")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Error(err)
 		os.Exit(2)
@@ -28,13 +28,13 @@ func main() {
 
 	cfg, err := config.GetConfig(*cfgPath)
 	if err != nil {
-		log.Error("Failed to get config: %s - %v", *cfgPath, err)
+		log.Errorf("Failed to get config: %s - %v", *cfgPath, err)
 		os.Exit(2)
 	}
 
-	licenseCfg, err := config.GetConfig("license.yml")
+	licenseCfg, err := config.GetConfig("./configs/license.yml")
 	if err != nil {
-		log.Error("Failed to get config for license: %s - %v", *cfgPath, err)
+		log.Errorf("Failed to get config for license: %s - %v", *cfgPath, err)
 		os.Exit(2)
 	}
 

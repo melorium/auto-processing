@@ -83,8 +83,8 @@ func (cfg *Config) Validate() error {
 	}
 
 	// Check if the process-profile is readable
-	if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles" + cfg.Nuix.Settings.Profile); !ok && err != nil {
-		return fmt.Errorf("No write read to ProfileLocation: %v", err)
+	if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles\\" + cfg.Nuix.Settings.Profile + ".xml"); !ok && err != nil {
+		return fmt.Errorf("Cannot find profile %s: %v", cfg.Nuix.Settings.Profile, err)
 	}
 
 	// Check if the master case location is writable
@@ -128,8 +128,8 @@ func (cfg *Config) Validate() error {
 	for _, subStep := range cfg.Nuix.Settings.SubSteps {
 		// Check if the profile location if the user has provided one
 		if len(subStep.Profile) != 0 {
-			if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles" + subStep.Profile); !ok && err != nil {
-				return err
+			if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles\\" + subStep.Profile + ".xml"); !ok && err != nil {
+				return fmt.Errorf("Cannot find profile %s: %v", cfg.Nuix.Settings.Profile, err)
 			}
 		}
 
@@ -141,7 +141,7 @@ func (cfg *Config) Validate() error {
 			break
 		}
 
-		// Set automatic directory and name for the subcase (since it has not been configured by the user)
+		// Set directory and name for the subcase (since it has not been configured by the user)
 		review := 1
 		for {
 			reviewCaseDir := fmt.Sprintf("%s/review-c%d-r%d", cfg.Nuix.Settings.CaseLocation, collection, review)
@@ -260,10 +260,7 @@ func readYAML(path string, cfg *Config) error {
 	}
 
 	decoder := yaml.NewDecoder(file)
-	if err = decoder.Decode(cfg); err != nil {
-		return err
-	}
-	return nil
+	return decoder.Decode(cfg)
 }
 
 // GetConfig returns data from config.yml
