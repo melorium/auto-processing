@@ -9,82 +9,81 @@ import (
 
 type Config struct {
 	Server *ServerCfg `yaml:"server"`
-	Nuix *NuixCfg `yaml:"nuix"`
-	Queue []*Queue `yaml:"queue"`
+	Nuix   *NuixCfg   `yaml:"nuix"`
+	Queue  []*Queue   `yaml:"queue"`
 }
 
 type Queue struct {
-	Config string `yaml:"config"`
-	Active bool `yaml:"active"`
-	Successful bool `yaml:"successful"`
-	Failed bool `yaml:"failed"`
+	Config     string `yaml:"config"`
+	Active     bool   `yaml:"active"`
+	Successful bool   `yaml:"successful"`
+	Failed     bool   `yaml:"failed"`
 }
 
 type ServerCfg struct {
-	NmsAddress string `yaml:"nms_address"`
-	NuixPath string `yaml:"nuix_path"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	NmsAddress  string `yaml:"nms_address"`
+	NuixPath    string `yaml:"nuix_path"`
+	Username    string `yaml:"username"`
+	Password    string `yaml:"password"`
 	Licencetype string `yaml:"licencetype"`
 }
 
 type NuixCfg struct {
-	Xmx string `yaml:"xmx"`
-	Workers string `yaml:"workers"`
+	Xmx      string    `yaml:"xmx"`
+	Workers  string    `yaml:"workers"`
 	Settings *Settings `yaml:"settings"`
-	Switches []string `yaml:"switches"`
+	Switches []string  `yaml:"switches"`
 }
 
 type Settings struct {
-	CaseLocation string `yaml:"case_location" json:"case_location"`
-	Profile string `yaml:"profile" json:"profile"`
-	ProfileLocation string `yaml:"profile_location" json:"profile_location"`
-	Compound bool `yaml:"compound" json:"compound"`
-	CompoundCase *Case `yaml:"compound_case" json:"compound_case"`
-	ReviewCompound *Case `yaml:"review_compound" json:"review_compound"`
-	Case *Case `yaml:"case" json:"case_settings"`
-	EvidenceStore []*Evidence `yaml:"evidence_store" json:"evidence_settings"`
-	SubSteps []*SubStep `yaml:"sub_steps" json:"sub_steps"`
-	WorkingPath string `json:"working_path"`
+	CaseLocation   string      `yaml:"case_location" json:"case_location"`
+	Profile        string      `yaml:"profile" json:"profile"`
+	Compound       bool        `yaml:"compound" json:"compound"`
+	CompoundCase   *Case       `yaml:"compound_case" json:"compound_case"`
+	ReviewCompound *Case       `yaml:"review_compound" json:"review_compound"`
+	Case           *Case       `yaml:"case" json:"case_settings"`
+	EvidenceStore  []*Evidence `yaml:"evidence_store" json:"evidence_settings"`
+	SubSteps       []*SubStep  `yaml:"sub_steps" json:"sub_steps"`
+	WorkingPath    string      `json:"working_path"`
 }
 
 type Case struct {
-	Name string `yaml:"name" json:"name"`
-	Directory string `yaml:"directory" json:"directory"`
-	Description string `yaml:"description" json:"description"`
+	Name         string `yaml:"name" json:"name"`
+	Directory    string `yaml:"directory" json:"directory"`
+	Description  string `yaml:"description" json:"description"`
 	Investigator string `yaml:"investigator" json:"investigator"`
 }
 
 type Evidence struct {
-	Name string `yaml:"name" json:"name"`
-	Directory string `yaml:"directory" json:"directory"`
+	Name        string `yaml:"name" json:"name"`
+	Directory   string `yaml:"directory" json:"directory"`
 	Description string `yaml:"description" json:"description"`
-	Encoding string `yaml:"encoding" json:"encoding"`
-	Custodian string `yaml:"custodian" json:"custodian"`
-	Locale string `yaml:"locale" json:"locale"`
+	Encoding    string `yaml:"encoding" json:"encoding"`
+	Custodian   string `yaml:"custodian" json:"custodian"`
+	Locale      string `yaml:"locale" json:"locale"`
 }
 
 type SubStep struct {
-	Type string `yaml:"type" json:"type"`
-	Name string `yaml:"name" json:"name"`
-	Profile string `yaml:"profile" json:"profile"`
-	ProfileLocation string `yaml:"profile_location" json:"profile_location"`
-	Search string `yaml:"search" json:"search"`
-	Tag string `yaml:"tag" json:"tag"`
-	ExportPath string `yaml:"export_path" json:"export_path"`
-	Case Case `yaml:"case" json:"case"`
-	Reason string `yaml:"reason" json:"reason"`
-	Files []string `yaml:"files" json:"files"`
+	Type       string   `yaml:"type" json:"type"`
+	Name       string   `yaml:"name" json:"name"`
+	Profile    string   `yaml:"profile" json:"profile"`
+	Search     string   `yaml:"search" json:"search"`
+	Tag        string   `yaml:"tag" json:"tag"`
+	ExportPath string   `yaml:"export_path" json:"export_path"`
+	Case       Case     `yaml:"case" json:"case"`
+	Reason     string   `yaml:"reason" json:"reason"`
+	Files      []string `yaml:"files" json:"files"`
 }
 
+// Validate the config
 func (cfg *Config) Validate() error {
 	// Check if the nuix-path exists
 	if ok, err := isReadable(cfg.Server.NuixPath); !ok && err != nil {
 		return fmt.Errorf("No read access to NuixPath: %v", err)
 	}
-	
+
 	// Check if the process-profile is readable
-	if ok, err := isReadable(cfg.Nuix.Settings.ProfileLocation); !ok && err != nil {
+	if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles" + cfg.Nuix.Settings.Profile); !ok && err != nil {
 		return fmt.Errorf("No write read to ProfileLocation: %v", err)
 	}
 
@@ -105,7 +104,7 @@ func (cfg *Config) Validate() error {
 			return fmt.Errorf("No write access to ReviewCompound.Directory: %v", err)
 		}
 	}
-	
+
 	// set a single-case name and directory based on directory availability
 	collection := 1
 	for {
@@ -128,8 +127,8 @@ func (cfg *Config) Validate() error {
 	// Check the configuration for the sub-steps
 	for _, subStep := range cfg.Nuix.Settings.SubSteps {
 		// Check if the profile location if the user has provided one
-		if len(subStep.ProfileLocation) != 0 {
-			if ok, err := isReadable(subStep.ProfileLocation); !ok && err != nil {
+		if len(subStep.Profile) != 0 {
+			if ok, err := isReadable("C:\\ProgramData\\Nuix\\Processing Profiles" + subStep.Profile); !ok && err != nil {
 				return err
 			}
 		}
@@ -141,7 +140,7 @@ func (cfg *Config) Validate() error {
 			}
 			break
 		}
-	
+
 		// Set automatic directory and name for the subcase (since it has not been configured by the user)
 		review := 1
 		for {
@@ -192,7 +191,7 @@ func (cfg *Config) Validate() error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -215,9 +214,9 @@ func (q *Queue) SetFailed() {
 }
 
 func isWritable(path string) (bool, error) {
-    info, err := os.Stat(path)
-    if err != nil {
-        if os.IsNotExist(err) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
 			if err := os.MkdirAll(path, os.ModePerm); err != nil {
 				return false, fmt.Errorf("failed to create path at: %s - %v", path, err)
 			}
@@ -228,18 +227,18 @@ func isWritable(path string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("error checking filepath at: %s", path)
 		}
-    }
+	}
 
-    if !info.IsDir() {
-        return false, fmt.Errorf("path provided is not a directory: %s", path)
-    }
+	if !info.IsDir() {
+		return false, fmt.Errorf("path provided is not a directory: %s", path)
+	}
 
-    // Check if the user bit is enabled in file permission
-    if info.Mode().Perm()&(1<<(uint(7))) == 0 {
-        return false, fmt.Errorf("write permission bit is not set on this file for user: %s", path)
-    }
+	// Check if the user bit is enabled in file permission
+	if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+		return false, fmt.Errorf("write permission bit is not set on this file for user: %s", path)
+	}
 
-    return true, nil
+	return true, nil
 }
 
 func isReadable(path string) (bool, error) {
