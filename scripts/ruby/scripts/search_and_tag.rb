@@ -1,8 +1,9 @@
 require File.join(__dir__, "../utils", "logging") 
 
 
-def search_and_tag(current_case, search, tag, search_and_tag_files)
-    logger = Logging.get_logger("search_and_tag.rb")
+def search_and_tag(current_case, search, tag, search_and_tag_files, current_cfg)
+    logger = Logging.get_logger("search_and_tag.rb", current_cfg)
+    logger.info("START")
     logger.info("Initializing search and tag")
     if search_and_tag_files.nil?
         logger.debug("Searching through current case: #{search}")
@@ -32,4 +33,5 @@ def search_and_tag(current_case, search, tag, search_and_tag_files)
         logger.debug("Searching through row #{row_num += 1}/#{num_rows}")
     end
     logger.info("Search and tag finished")
+    logger.info("FINISHED")
 end

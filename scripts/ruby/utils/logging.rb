@@ -4,15 +4,15 @@ require 'json'
 
 
 module Logging
-  def self.get_logger(program)
+  def self.get_logger(program, cfg)
+    datetime_format = "%FT%T.%3N#{(Time.new.utc? ? 'Z' : '%:z')}"
     return Logger.new(
       STDOUT,
       level: Logger::DEBUG,
       progname: program,
-      datetime_format: '%Y-%m-%dT%H:%M:%SZ',
       formatter: proc do |severity, datetime, progname, msg, exception|
-        JSON.dump(level: severity.downcase, msg: msg, source: progname, time: "#{datetime.to_s}")+"\n"
-      end
+      JSON.dump(level: severity.downcase, msg: msg, source: progname, config: cfg, time: "#{datetime.strftime(datetime_format)}")+"\n"
+    end
     )
   end
 end
