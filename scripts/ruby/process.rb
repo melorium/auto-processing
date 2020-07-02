@@ -4,8 +4,6 @@ require "optparse"
 require File.join(__dir__, "utils", "logging") 
 
 
-$logger = Logging.get_logger("process.rb")
-
 class Case
     def initialize(settings)
         @case_factory = $utilities.getCaseFactory
@@ -115,7 +113,7 @@ class Processor
     def run_scripts(single_case, compound_case)
         unless @settings["sub_steps"].nil?
             require File.join(@settings["working_path"], "scripts\\ruby\\scripts", "main.rb")
-            main(@settings["sub_steps"], single_case, compound_case)
+            main(@settings["sub_steps"], single_case, compound_case, $current_cfg)
         end
     end
 end
@@ -123,9 +121,13 @@ end
 def get_settings
     options = {}
     OptionParser.new do |opts|
-    opts.banner = "Usage: process.rb [options]"
-    opts.on("-s", "--settings Path for process settings", "Settings") { |v| options[:settings] = v }
+        opts.banner = "Usage: process.rb [options]"
+        opts.on("-s", "--settings Path for process settings", "Settings") { |v| options[:settings] = v }
+        opts.on("-c", "--config name of the current running config", "Config") { |v| options[:config] = v }
     end.parse!
+
+    $current_cfg = options[:config]
+
     file = File.read(options[:settings])
     return JSON.parse(file)
 end
@@ -133,6 +135,9 @@ end
 begin
     time_start = Time.now 
     settings = get_settings
+
+    $logger = Logging.get_logger("process.rb", $current_cfg)
+    $logger.info("START")
 
     case_factory = Case.new(settings)
     if settings["compound"]
@@ -152,6 +157,7 @@ begin
     time_end = Time.now
     execution_time = time_end - time_start
     $logger.info("Execution time: " + execution_time.to_i.to_s + " seconds")
+    $logger.info("FINISHED")
 
 rescue => e
     $logger.fatal("Failed to run script: #{e}")

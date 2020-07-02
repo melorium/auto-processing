@@ -1,15 +1,22 @@
 require File.join(__dir__, "../utils", "logging")
 
 
-$logger = Logging.get_logger("main.rb")
-
-def main(settings, single_case, review_compound)
+def main(settings, single_case, review_compound, current_cfg)
+  $logger = Logging.get_logger("main.rb", current_cfg)
+  $logger.info("START")
+  
   for sub_step in settings
+
     if sub_step["type"] == "script"
+      if sub_step["name"] == "populate"
+        require File.join(__dir__,sub_step["name"])
+        populate(single_case, sub_step["search"], current_cfg, sub_step["types"])
+      end
+
     
       if sub_step["name"] == "search_and_tag"
         require File.join(__dir__, sub_step["name"])
-        search_and_tag(single_case, sub_step["search"], sub_step["tag"], sub_step["files"])
+        search_and_tag(single_case, sub_step["search"], sub_step["tag"], sub_step["files"], current_cfg)
       end
   
       if sub_step["name"] == "ocr"
@@ -19,12 +26,12 @@ def main(settings, single_case, review_compound)
         $logger.info("OCR-profile: #{sub_step["profile"]} has been set to the processor")
   
         require File.join(__dir__, sub_step["name"])
-        ocr(ocr_processor, single_case, sub_step["search"])
+        ocr(ocr_processor, single_case, sub_step["search"], current_cfg)
       end
   
       if sub_step["name"] == "exclude"
         require File.join(__dir__, sub_step["name"])
-        exclude(single_case, sub_step["search"], sub_step["reason"])
+        exclude(single_case, sub_step["search"], sub_step["reason"], current_cfg)
       end
 
       if sub_step["name"] == "reload"
@@ -33,7 +40,7 @@ def main(settings, single_case, review_compound)
         reload_processor.set_processing_profile(sub_step["profile"])
         $logger.info("Processing-profile: #{sub_step["profile"]} has been set to the processor")
         require File.join(__dir__, sub_step["name"])
-        reload(reload_processor, single_case, sub_step["search"])
+        reload(reload_processor, single_case, sub_step["search"], current_cfg)
       end
   
     end
@@ -60,4 +67,5 @@ def main(settings, single_case, review_compound)
       end
     end
   end
+  $logger.info("FINISHED")
 end
