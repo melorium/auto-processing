@@ -73,6 +73,7 @@ type SubStep struct {
 	Case       Case     `yaml:"case" json:"case"`
 	Reason     string   `yaml:"reason" json:"reason"`
 	Files      []string `yaml:"files" json:"files"`
+	Types      []string `yaml:"types" json:"types"`
 }
 
 // Validate the config

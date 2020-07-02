@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Get(source string) (*logrus.Entry, *os.File) {
+func Get(source, cfg string) (*logrus.Entry, *os.File) {
 	dt := time.Now()
 	timestamp := dt.Format("20060102")
 	filename := fmt.Sprintf("%s%s.log", source, timestamp)
@@ -32,5 +32,6 @@ func Get(source string) (*logrus.Entry, *os.File) {
 		Formatter: new(logrus.JSONFormatter),
 	}
 	log := logger.WithField("source", source)
+	log = logger.WithField("config", cfg)
 	return log, logFile
 }

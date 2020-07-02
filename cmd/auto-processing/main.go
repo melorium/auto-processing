@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,17 +15,17 @@ import (
 )
 
 func main() {
-	log, logFile := log.Get("auto-processing")
-	defer logFile.Close()
-
-	log.Info("Initializing script")
-
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	cfgPath := flags.String("cfg", "./configs/auto-processing.yml", "filepath for the config")
 	if err := flags.Parse(os.Args[1:]); err != nil {
-		log.Error(err)
+		fmt.Printf("Error trying to find config: %v", err)
 		os.Exit(2)
 	}
+
+	log, logFile := log.Get("auto-processing", *cfgPath)
+	defer logFile.Close()
+
+	log.Info("Initializing script")
 
 	cfg, err := config.GetConfig(*cfgPath)
 	if err != nil {
@@ -85,9 +86,11 @@ func main() {
 		cfg.Nuix.Workers,
 		"-signout",
 		"-release",
-		path+".\\scripts\\ruby\\process.rb",
+		path+"\\scripts\\ruby\\process.rb",
 		"-s",
 		tmpFile,
+		"-c",
+		*cfgPath,
 		strings.Join(cfg.Nuix.Switches, " "),
 	)
 
