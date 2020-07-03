@@ -93,16 +93,21 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("No write access to CaseLocation: %v", err)
 	}
 
-	cfg.Nuix.Settings.CompoundCase.Directory = cfg.Nuix.Settings.CaseLocation + "/compound"
+	if cfg.Nuix.Settings.CompoundCase != nil {
+		cfg.Nuix.Settings.CompoundCase.Directory = cfg.Nuix.Settings.CaseLocation + "/compound"
+	}
+	
 
 	// The user might need to configure the directory for review-compound
-	if len(cfg.Nuix.Settings.ReviewCompound.Directory) == 0 {
-		cfg.Nuix.Settings.ReviewCompound.Directory = fmt.Sprintf("%s/review-compound", cfg.Nuix.Settings.CaseLocation)
-		cfg.Nuix.Settings.ReviewCompound.Name = "review-compound"
-	} else {
-		// Check that review-compound dir is writable
-		if ok, err := isWritable(cfg.Nuix.Settings.ReviewCompound.Directory); !ok && err != nil {
-			return fmt.Errorf("No write access to ReviewCompound.Directory: %v", err)
+	if cfg.Nuix.Settings.ReviewCompound != nil {
+		if len(cfg.Nuix.Settings.ReviewCompound.Directory) == 0 {
+			cfg.Nuix.Settings.ReviewCompound.Directory = fmt.Sprintf("%s/review-compound", cfg.Nuix.Settings.CaseLocation)
+			cfg.Nuix.Settings.ReviewCompound.Name = "review-compound"
+		} else {
+			// Check that review-compound dir is writable
+			if ok, err := isWritable(cfg.Nuix.Settings.ReviewCompound.Directory); !ok && err != nil {
+				return fmt.Errorf("No write access to ReviewCompound.Directory: %v", err)
+			}
 		}
 	}
 
