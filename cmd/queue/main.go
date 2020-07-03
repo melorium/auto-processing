@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -18,15 +19,15 @@ const (
 )
 
 func main() {
-	log, logFile := log.Get("queue")
-	defer logFile.Close()
-
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	cfgPath := flags.String("cfg", "./configs/queue.yml", "filepath for the config")
 	if err := flags.Parse(os.Args[1:]); err != nil {
-		log.Error(err)
+		fmt.Printf("Failed to get cfg, use flag: --cfg=/path/to/cfg - error: %v", err)
 		os.Exit(2)
 	}
+
+	log, logFile := log.Get("queue", *cfgPath)
+	defer logFile.Close()
 
 	queue(log, cfgPath)
 
