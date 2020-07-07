@@ -26,12 +26,21 @@ func Get(source, cfg string) (*logrus.Entry, *os.File) {
 		os.Exit(2)
 	}
 
+	formatter := &logrus.JSONFormatter{
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyLevel: "level",
+			logrus.FieldKeyMsg:   "msg",
+			logrus.FieldKeyTime:  "time",
+		},
+	}
+
 	logger := &logrus.Logger{
 		Out:       io.MultiWriter(os.Stdout, logFile),
 		Level:     logrus.DebugLevel,
-		Formatter: new(logrus.JSONFormatter),
+		Formatter: formatter,
 	}
-	log := logger.WithField("source", source)
-	log = logger.WithField("config", cfg)
+
+	log := logger.WithFields(logrus.Fields{"src": source, "config": cfg})
+
 	return log, logFile
 }
