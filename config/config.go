@@ -14,10 +14,12 @@ type Config struct {
 }
 
 type Queue struct {
-	Config     string `yaml:"config"`
-	Active     bool   `yaml:"active"`
-	Successful bool   `yaml:"successful"`
-	Failed     bool   `yaml:"failed"`
+	Config      string  `yaml:"config"`
+	Host        *string `yaml:"host"`
+	ProgramPath *string `yaml:"program_path"`
+	Active      bool    `yaml:"active"`
+	Successful  bool    `yaml:"successful"`
+	Failed      bool    `yaml:"failed"`
 }
 
 type ServerCfg struct {
@@ -96,7 +98,6 @@ func (cfg *Config) Validate() error {
 	if cfg.Nuix.Settings.CompoundCase != nil {
 		cfg.Nuix.Settings.CompoundCase.Directory = cfg.Nuix.Settings.CaseLocation + "/compound"
 	}
-	
 
 	// The user might need to configure the directory for review-compound
 	if cfg.Nuix.Settings.ReviewCompound != nil {
