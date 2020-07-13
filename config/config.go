@@ -14,12 +14,12 @@ type Config struct {
 }
 
 type Queue struct {
-	Config      string  `yaml:"config"`
-	Host        *string `yaml:"host"`
-	ProgramPath *string `yaml:"program_path"`
-	Active      bool    `yaml:"active"`
-	Successful  bool    `yaml:"successful"`
-	Failed      bool    `yaml:"failed"`
+	Config      string `yaml:"config"`
+	Host        string `yaml:"host"`
+	ProgramPath string `yaml:"program_path"`
+	Active      bool   `yaml:"active"`
+	Successful  bool   `yaml:"successful"`
+	Failed      bool   `yaml:"failed"`
 }
 
 type ServerCfg struct {
