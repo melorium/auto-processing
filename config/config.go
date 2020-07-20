@@ -14,12 +14,13 @@ type Config struct {
 }
 
 type Queue struct {
-	Config      string `yaml:"config"`
-	Host        string `yaml:"host"`
-	ProgramPath string `yaml:"program_path"`
-	Active      bool   `yaml:"active"`
-	Successful  bool   `yaml:"successful"`
-	Failed      bool   `yaml:"failed"`
+	Config     string `yaml:"config"`
+	Host       string `yaml:"host"`
+	Username   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	Active     bool   `yaml:"active"`
+	Successful bool   `yaml:"successful"`
+	Failed     bool   `yaml:"failed"`
 }
 
 type ServerCfg struct {
@@ -261,7 +262,7 @@ func isReadable(path string) (bool, error) {
 }
 
 func readYAML(path string, cfg *Config) error {
-	file, err := os.Open(path)
+	file, err := os.Open("./configs/" + path)
 	if err != nil {
 		return err
 	}
