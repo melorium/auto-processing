@@ -1,115 +1,73 @@
 package powershell
 
 import (
+	"errors"
 	"fmt"
-	"strconv"
-	"strings"
-
-	ps "github.com/simonjanss/go-powershell"
-	"github.com/simonjanss/go-powershell/middleware"
+	"os"
+	"os/exec"
+	"runtime"
+	"syscall"
 )
 
+// Client holds information -
+// needed for a powershell-connection
 type Client struct {
-	Host        string
-	ProgramPath string
-	Shell       ps.Shell
-	Session     middleware.Middleware
+	Host     string
+	Username string
+	Password string
 }
 
-// NewClient creates a new remote-client
-func NewClient(host, programPath string, shell ps.Shell) (*Client, error) {
-	// prepare remote session configuration
-	//config := &middleware.SessionConfig{ComputerName: host}
-	config := middleware.NewSessionConfig()
-	config.ComputerName = host
-
-	// create a new shell by wrapping the existing one in the session middleware
-	session, err := middleware.NewSession(shell, config)
-	if err != nil {
-		return nil, err
-	}
-
+// NewClient creates a new client with information -
+// needed for a powershell-connection
+func NewClient(host, username, password string) *Client {
 	return &Client{
-		Host:        host,
-		ProgramPath: programPath,
-		Shell:       shell,
-		Session:     session,
-	}, nil
+		Host:     host,
+		Username: username,
+		Password: password,
+	}
 }
 
-func (c *Client) Run(cfg string) error {
-	// Format the paths
-	newCfg, cfgPath := c.formatPaths(cfg)
+// AutoProcessing runs the auto-processing script
+func (c *Client) AutoProcessing(archive, path, cfg string) error {
+	return handleError(execute(c.autoProcessing(archive, path, cfg)))
+}
 
-	// Copy the config to the remote-server
-	if err := c.copyConfig(cfg, cfgPath); err != nil {
-		return fmt.Errorf("Failed to copy config to remote-server: %v", err)
+// TestConnection test the connection and if the path is specified
+func (c *Client) TestConnection(path string) error {
+	return handleError(execute(c.testConnection(path)))
+}
+
+func handleError(err error) error {
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			if status.ExitStatus() == 40 {
+				return fmt.Errorf("%v : Cannot access remote-computer", err)
+			} else if status.ExitStatus() == 50 {
+				return fmt.Errorf("%v : Cannot access file-path", err)
+			}
+		}
+		return fmt.Errorf("%v : Unknown error", err)
 	}
-
-	// Remove the config from the remote-server
-	defer c.rmConfig(cfgPath)
-
-	if err := c.execute(newCfg); err != nil {
-		return fmt.Errorf("Failed to execute program with config %s : %v", newCfg, err)
-	}
-
-	exitcode, err := c.getExitCode()
-	if err != nil {
-		return fmt.Errorf("Failed to get exitcode: %v", err)
-	}
-
-	if exitcode != 0 {
-		return fmt.Errorf("Program exited with code: %d", exitcode)
-	}
-
 	return nil
 }
 
-func (c *Client) Close() {
-	if c.Session != nil {
-		c.Session.Close()
-		c.Session = nil
+// execute the script
+func execute(script string) error {
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("powershell.exe", script)
+	} else if runtime.GOOS == "darwin" {
+		cmd = exec.Command("pwsh", script)
+	} else if runtime.GOOS == "linux" {
+		return errors.New("linux powershell not available yet - will be available soon")
+	} else {
+		return fmt.Errorf("%s is not avaibable yet", runtime.GOOS)
 	}
-}
 
-func (c *Client) formatPaths(cfg string) (string, string) {
-	newCfg := strings.ReplaceAll(cfg, "./configs/", "")
-	netPath := strings.Replace(c.ProgramPath, ":", "$", 1)
-	cfgPath := fmt.Sprintf("//%s/%s/%s", c.Host, netPath, newCfg)
-	return newCfg, cfgPath
-}
+	cmd.Stderr = os.Stderr
 
-func (c *Client) copyConfig(cfg, cfgPath string) error {
-	_, _, err := c.Shell.Execute(fmt.Sprintf("Copy-Item -Path %s -Destination %s", cfg, cfgPath))
-	return err
-}
-
-func (c *Client) rmConfig(cfgPath string) {
-	_, _, err := c.Shell.Execute(fmt.Sprintf("Remove-Item -Path %s", cfgPath))
-	if err != nil {
-		fmt.Println("Couldn't remove config:", err)
-	}
-}
-
-// Execute the program with the specified config
-func (c *Client) execute(cfg string) error {
-	// everything run via the session is run on the remote machine
-	_, _, err := c.Session.Execute(fmt.Sprintf("cd %s", c.ProgramPath))
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// everything run via the session is run on the remote machine
-	_, _, err = c.Session.Execute(fmt.Sprintf(".\\auto-processing.exe --cfg=%s", cfg))
-	return err
-}
-
-func (c *Client) getExitCode() (int64, error) {
-	stdout, _, err := c.Session.Execute("echo $LastExitCode")
-	if err != nil {
-		return 2, err
-	}
-
-	stdout = strings.Replace(stdout, "\r\n", "", 1)
-	return strconv.ParseInt(stdout, 10, 64)
+	return cmd.Wait()
 }
