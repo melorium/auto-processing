@@ -72,6 +72,8 @@ func main() {
 
 	program := cfg.Server.NuixPath + "\\nuix_console.exe"
 
+	managementServer := fmt.Sprintf("%s:%d", cfg.Server.NmsAddress, cfg.Server.NmsPort)
+
 	cmd := exec.Command(
 		program,
 		"-Xmx"+cfg.Nuix.Xmx,
@@ -79,7 +81,7 @@ func main() {
 		"-licencesourcetype",
 		"server",
 		"-licencesourcelocation",
-		cfg.Server.NmsAddress+":27443",
+		managementServer,
 		"-licencetype",
 		cfg.Server.Licencetype,
 		"-licenceworkers",

@@ -25,6 +25,7 @@ type Queue struct {
 
 type ServerCfg struct {
 	NmsAddress  string `yaml:"nms_address"`
+	NmsPort     int    `yaml:"nms_port"`
 	NuixPath    string `yaml:"nuix_path"`
 	Username    string `yaml:"username"`
 	Password    string `yaml:"password"`
@@ -84,6 +85,11 @@ func (cfg *Config) Validate() error {
 	// Check if the nuix-path exists
 	if ok, err := isReadable(cfg.Server.NuixPath); !ok && err != nil {
 		return fmt.Errorf("No read access to NuixPath: %v", err)
+	}
+
+	// Set the port to standard if not provided
+	if cfg.Server.NmsPort == 0 {
+		cfg.Server.NmsPort = 27443
 	}
 
 	// Check if the process-profile is readable
