@@ -11,7 +11,7 @@ def populate(current_case, search, current_cfg, types)
     tmpdir = Dir.tmpdir
     dir = "#{tmpdir}\\populate"
     unless Dir.exist?(dir)
-        dir = Dir.mkdir(dir)
+        FileUtils.mkdir_p(dir)
     end
 
     logger.debug("Creating batch-exporter to temp-dir: #{dir}")
