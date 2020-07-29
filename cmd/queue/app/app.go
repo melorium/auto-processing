@@ -23,6 +23,7 @@ const (
 
 type App struct {
 	Log     *logrus.Entry
+	LogFile *os.File
 	CfgPath string
 	Pwd     string
 	TmpDir  string
@@ -149,7 +150,7 @@ func (a *App) runRemote(runner *config.Queue, cfg *config.Config) {
 	defer os.Remove(archive.Path)
 
 	// Create a ps-client to use for the remote-connection
-	ps := powershell.NewClient(runner.Host, runner.Username, runner.Password)
+	ps := powershell.NewClient(runner.Host, runner.Username, runner.Password, a.LogFile)
 	if err := ps.AutoProcessing(archive.Name, archive.Path, runner.Config); err != nil {
 		a.Log.Errorf("Failed to run program @ %s : %v", runner.Host, err)
 		runner.SetFailed()

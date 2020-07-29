@@ -36,6 +36,7 @@ func main() {
 
 	app := app.App{
 		Log:     log,
+		LogFile: logFile,
 		CfgPath: *cfgPath,
 		Pwd:     pwd,
 		TmpDir:  tmpDir,

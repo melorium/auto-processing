@@ -7,7 +7,7 @@ import (
 )
 
 func ExampleTestConnection() {
-	ps := powershell.NewClient("hostname", "username", "password")
+	ps := powershell.NewClient("hostname", "username", "password", nil)
 	if err := ps.TestConnection("C:\\path"); err != nil {
 		log.Fatal(err)
 	}

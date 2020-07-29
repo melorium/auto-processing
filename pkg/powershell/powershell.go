@@ -3,6 +3,7 @@ package powershell
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -15,26 +16,28 @@ type Client struct {
 	Host     string
 	Username string
 	Password string
+	LogFile  *os.File
 }
 
 // NewClient creates a new client with information -
 // needed for a powershell-connection
-func NewClient(host, username, password string) *Client {
+func NewClient(host, username, password string, logFile *os.File) *Client {
 	return &Client{
 		Host:     host,
 		Username: username,
 		Password: password,
+		LogFile:  logFile,
 	}
 }
 
 // AutoProcessing runs the auto-processing script
 func (c *Client) AutoProcessing(archive, path, cfg string) error {
-	return handleError(execute(c.autoProcessing(archive, path, cfg)))
+	return handleError(c.execute(c.autoProcessing(archive, path, cfg)))
 }
 
 // TestConnection test the connection and if the path is specified
 func (c *Client) TestConnection(path string) error {
-	return handleError(execute(c.testConnection(path)))
+	return handleError(c.execute(c.testConnection(path)))
 }
 
 func handleError(err error) error {
@@ -52,7 +55,7 @@ func handleError(err error) error {
 }
 
 // execute the script
-func execute(script string) error {
+func (c *Client) execute(script string) error {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("powershell.exe", script)
@@ -64,7 +67,8 @@ func execute(script string) error {
 		return fmt.Errorf("%s is not avaibable yet", runtime.GOOS)
 	}
 
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = io.MultiWriter(os.Stdout, c.LogFile)
+	cmd.Stderr = io.MultiWriter(os.Stderr, c.LogFile)
 
 	if err := cmd.Start(); err != nil {
 		return err
