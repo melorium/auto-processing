@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/avian-digital-forensics/auto-processing/config"
+	"github.com/avian-digital-forensics/auto-processing/log"
 	"github.com/avian-digital-forensics/auto-processing/pkg/powershell"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -149,8 +150,11 @@ func (a *App) runRemote(runner *config.Queue, cfg *config.Config) {
 	}
 	defer os.Remove(archive.Path)
 
+	_, srvLog := log.Get(runner.Host, "")
+	defer srvLog.Close()
+
 	// Create a ps-client to use for the remote-connection
-	ps := powershell.NewClient(runner.Host, runner.Username, runner.Password, a.LogFile)
+	ps := powershell.NewClient(runner.Host, runner.Username, runner.Password, srvLog)
 	if err := ps.AutoProcessing(archive.Name, archive.Path, runner.Config); err != nil {
 		a.Log.Errorf("Failed to run program @ %s : %v", runner.Host, err)
 		runner.SetFailed()
