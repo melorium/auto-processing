@@ -146,6 +146,8 @@ func (a *App) runRemote(runner *config.Queue, cfg *config.Config) {
 	archive, err := a.archiveFiles(files)
 	if err != nil {
 		a.Log.Errorf("Could not archive files: %v", err)
+		runner.SetFailed()
+		a.updateQueue(cfg)
 		return
 	}
 	defer os.Remove(archive.Path)
