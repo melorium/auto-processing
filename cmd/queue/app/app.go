@@ -54,7 +54,7 @@ func (a *App) Start() {
 func (a *App) loop(cfg *config.Config) {
 	a.Log.Warnf("Queue: %v", cfg.Queue)
 	for _, runner := range cfg.Queue {
-		a.Log.Warnf("Runner: %v", runner)
+		a.Log.Debugf("Config: %s Host: %s", runner.Config, runner.Host)
 		// Check if the runner already has run
 		if runner.Successful {
 			a.Log.Debugf("Skipping the run with config: %s since it already has been processed", runner.Config)
