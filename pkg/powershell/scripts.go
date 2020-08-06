@@ -29,7 +29,8 @@ func (c *Client) autoProcessing(archive, path, cfg string) string {
 
 	$ExitCode = Invoke-Command -Session $session -ScriptBlock { echo $LastExitCode };
 
-	Invoke-Command -Session $session -Command { Remove-Item ..\unzipped-$Using:Archive };
+	Invoke-Command -Session $session -ScriptBlock { Set-Location $Using:session_tmp };
+	Invoke-Command -Session $session -Command { Remove-Item .\unzipped-$Using:Archive -Recurse };
 	
 	Disconnect-PSSession -Session $session;
 	
