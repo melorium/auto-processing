@@ -45,6 +45,7 @@ func run(args []string, stdout io.Writer) error {
 		LogFile: logFile,
 		CfgPath: *cfgPath,
 		Pwd:     pwd,
+		TmpDir:  tmpDir,
 	}
 
 	// Listen to os-signal and remove tmpdir
