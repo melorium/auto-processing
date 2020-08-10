@@ -59,6 +59,7 @@ class Case
         else
           $logger.debug("Did not add case to compound")
         end
+        single_case.close()
     end
 end
 
@@ -160,6 +161,9 @@ begin
     $logger.info("FINISHED")
 
 rescue => e
+    unless case_factory.nil?
+        case_factory.tear_down(compound_case, single_case, review_compound)
+    end
     $logger.fatal("Failed to run script: #{e}")
     exit(false)
 end
