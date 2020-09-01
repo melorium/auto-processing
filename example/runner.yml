@@ -1,0 +1,95 @@
+api:
+  runner:
+    # Set name to something unique (cases will be named after this)
+    name: runner-test
+    
+    # Specify the host for the remote-run (localhost if local-run)
+    hostname: dev01
+
+    # Set the address for the licence-source
+    nms: license.avian.dk
+
+    # set licencetype to the runner
+    licence: enterprise-workstation
+
+    # Xmx for java-vm
+    xmx: 8g
+
+    # Amount of workers to use for thet run
+    workers: 1
+
+    # specify the case settings
+    caseSettings:
+
+      # caseLocation is the parent-folder for where the cases will be created
+      caseLocation: C:\Users\sja\Desktop\auto-processing-v11\configs
+      
+      # Add information for the case
+      case:
+        description: info
+        investigator: simon
+
+      # Add information for the compound case
+      compoundCase:
+        description: hgeh
+        investigator: simon
+        # Specify directory if you want to append the case
+        # to an existing compound
+        #directory: C:\path\to\compound
+      
+      reviewCompound:
+        description: This is a compound for review-cases
+        investigator: Simon
+        
+        # Specify directory if you want to append the case
+        # to an existing review-compound
+        #directory: \\other-server\network\path
+        #name: review-compound
+    
+    # Choose which stages the runner should run
+    stages:
+    - process:
+        profile: Default
+        profilePath: C:\ProgramData\Nuix\Processing Profiles\Default.xml
+        evidenceStore:
+          - name: evidence_1
+            directory: C:\Evidence\kate_symes\kate_symes_003_1_1.pst
+            description: this is the description for the evidence
+            encoding: UTF-8
+            timeZone: US/Pacific
+            custodian: Suspect
+            locale: en-US
+  
+    - searchAndTag:
+        search: kind:email
+        tag: hello
+
+    - searchAndTag:
+        files:
+        - path: C:\Users\sja\Desktop\auto-processing-v13\search_and_tag_1.json
+        - path: C:\Users\sja\Desktop\auto-processing-v13\search_and_tag_2.json
+    
+    - populate:
+        search: tag:hello
+        types:
+          - type: native
+          - type: pdf
+  
+    - ocr:
+        profile: Default
+        profilePath: C:\ProgramData\Nuix\OCR Profiles\Default.xml
+        search: tag:hello
+    
+    - exclude:
+        search: kind:email
+        reason: not_needed
+  
+    - reload:
+        profile: Default
+        profilePath: C:\ProgramData\Nuix\Processing Profiles\Default.xml
+        search: kind:email
+
+    # Switches are not available in v13
+    #switches:
+      # - -Dnuix.processing.sharedTempDirectory=<path> ## Change this to override worker temp location otherwise defined in the processing profile
+      # - -Dnuix.loglevel=DEBUG

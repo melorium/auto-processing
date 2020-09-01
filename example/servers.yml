@@ -1,0 +1,24 @@
+api:
+  servers:
+    # Servers available for remote connection
+    - server:
+        # Specify hostname and os for server
+        hostname: dev01
+        operatingSystem: windows
+        
+        # Specify username and password for non-AD environment
+        #username: user
+        #password: secret
+
+        # Specify path to nuix for the sever
+        nuixPath: C:\Program Files\Nuix\Nuix 8.4
+
+        # set to true if you want to skip the websocket installation on the server
+        skipInstall: true
+
+    # Specify another server
+    - server:
+        hostname: sune
+        operatingSystem: windows
+        nuixPath: C:\Program Files\Nuix\Nuix 8.4
+        skipInstall: true

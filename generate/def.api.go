@@ -1,0 +1,553 @@
+package def
+
+import "github.com/avian-digital-forensics/auto-processing/pkg/datastore"
+
+// ServerService handles all the servers
+type ServerService interface {
+	Apply(ServerApplyRequest) ServerApplyResponse
+	List(ServerListRequest) ServerListResponse
+}
+
+// Server is the main-struct for the
+// servers
+type Server struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Hostname of the server
+	Hostname string
+
+	// Port for the server
+	Port int64
+
+	// OperatingSystem the server is running
+	OperatingSystem string
+
+	// Username for connection to the server
+	Username string
+
+	// Password for connection to the server
+	Password string
+
+	// NuixPath to know where to run Nuix
+	NuixPath string
+
+	// Active - if the server has an active job
+	Active bool
+}
+
+// ServerApplyRequest is the input-object
+// for Apply in the server-service
+type ServerApplyRequest struct {
+	Hostname        string
+	Port            int64
+	OperatingSystem string
+	Username        string
+	Password        string
+	NuixPath        string
+	SkipInstall     bool
+}
+
+// ServerApplyResponse is the output-object
+// for Apply in the server-service
+type ServerApplyResponse struct {
+	Server Server
+}
+
+// ServerListRequest is the input-object
+// for List in the server-service
+type ServerListRequest struct{}
+
+// ServerListResponse is the output-object
+// for List in the server-service
+type ServerListResponse struct {
+	Servers []Server
+}
+
+// NmsService handles the Nuix Management Servers
+type NmsService interface {
+	Apply(NmsApplyRequests) NmsApplyResponse
+	List(NmsListRequest) NmsListResponse
+	ListLicences(NmsListLicencesRequest) NmsListLicencesResponse
+}
+
+// Nms is the main struct for the Nuix Management Servers
+type Nms struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Address of the nms-server
+	// for example: license.avian.dk
+	Address string
+
+	// Port for the nms-server
+	Port int64
+
+	// Username for the nms-server
+	Username string
+
+	// Password for the nms-server
+	Password string
+
+	// amount of workers licensed
+	// to the server
+	Workers int64
+
+	// Amount of workers in use
+	InUse int64
+
+	// Licences available at the server
+	Licences []Licence
+}
+
+// Licence holds information about licences
+// in Nuix Management Server
+type Licence struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Foreign-key for the NMS-server
+	NmsID uint
+
+	// Type of licence
+	Type string
+
+	// Amount of licences for this type
+	Amount int64
+
+	// Amount of licenses in use for this type
+	InUse int64
+}
+
+// Licences is a holder for Licence
+type Licences struct {
+	Licence LicenceApplyRequest
+}
+
+// LicenceApplyRequest is the input-object for
+// applying NMS-licence
+type LicenceApplyRequest struct {
+	// Type of licence
+	Type string
+
+	// Amount of licences for this type
+	Amount int64
+}
+
+type NmsApplyRequests struct {
+	Nms []NmsApplyRequest
+}
+
+// NmsApplyRequest is the input-object for
+// Apply in the NMS-service
+type NmsApplyRequest struct {
+	// Address of the nms-server
+	// for example: license.avian.dk
+	Address string
+
+	// Port for the nms-server
+	Port int64
+
+	// Username for the nms-server
+	Username string
+
+	// Password for the nms-server
+	Password string
+
+	// amount of workers licensed
+	// to the server
+	Workers int64
+
+	// Licences available at the server
+	Licences []Licences
+}
+
+// NmsApplyResponse is the output-object for
+// Apply in the NMS-service
+type NmsApplyResponse struct {
+	Nms []Nms
+}
+
+// NmsListRequest is the input-object for
+// List in the NMS-service
+type NmsListRequest struct{}
+
+// NmsListResponse is the output-object for
+// List in the NMS-service
+type NmsListResponse struct {
+	Nms []Nms
+}
+
+// NmsListLicencesRequest is the input-object for
+// listing licences for a specific NMS
+type NmsListLicencesRequest struct {
+	// ID for the nms-server
+	// to list the licences for
+	NmsID uint
+}
+
+// NmsListLicencesResponse is the output-object for
+// listing licences for a specific NMS
+type NmsListLicencesResponse struct {
+	Licences []Licence
+}
+
+// RunnerService handles all the runners
+type RunnerService interface {
+	// Apply applies the configuration to the backend
+	Apply(RunnerApplyRequest) RunnerApplyResponse
+
+	// List returns the runners from the backend
+	List(RunnerListRequest) RunnerListResponse
+
+	// Get returns the requested Runner
+	Get(RunnerGetRequest) RunnerGetResponse
+
+	// StartStage sets a stage to Active
+	StartStage(StageRequest) StageResponse
+
+	// FailedStage sets a stage to Failed
+	FailedStage(StageRequest) StageResponse
+
+	// FinishStage sets a stage to Finished
+	FinishStage(StageRequest) StageResponse
+}
+
+// Runner holds the information for a specific runner
+type Runner struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Name for the runner
+	Name string
+
+	// Server to use for the runner
+	Hostname string
+
+	// Nms to use for the runner
+	Nms string
+
+	// Licence to use for the runner
+	Licence string
+
+	// Xmx to use for the runner
+	Xmx string
+
+	// Amount of workers to use for the runner
+	Workers int64
+
+	// Active - if the runner is active or not
+	Active bool
+
+	// Finished - if the runner has finished or not
+	Finished bool
+
+	// CaseSettings for the cases to use
+	CaseSettingsID uint
+	CaseSettings   *CaseSettings
+
+	// Stages for the runner
+	Stages []*Stage
+}
+
+// RunnerApplyRequest is the input-object for
+// applying a runner-configuration to the Runner-service
+type RunnerApplyRequest struct {
+	// Name for the runner
+	Name string
+
+	// Server to use for the runner
+	Hostname string
+
+	// Nms to use for the runner
+	Nms string
+
+	// Licence to use for the runner
+	Licence string
+
+	// Xmx to use for the runner
+	Xmx string
+
+	// Amount of workers to use for the runner
+	Workers int64
+
+	// CaseSettings is the settings for the cases
+	// that should be processed if Process-stage is used
+	CaseSettings *CaseSettings
+
+	// Stages for the runner
+	Stages []*Stage
+}
+
+// RunnerApplyResponse is the output-object for
+// applying a runner-configuration to the backend
+type RunnerApplyResponse struct {
+	Runner Runner
+}
+
+// RunnerListRequest is the input-object for
+// listing the runners from the backend
+type RunnerListRequest struct{}
+
+// RunnerListResponse is the input-object for
+// listing the runners from the backend
+type RunnerListResponse struct {
+	Runners []Runner
+}
+
+// RunnerGetRequest is the input-object
+// for requesting a runner by name
+type RunnerGetRequest struct {
+	Name string
+}
+
+// RunnerGetResponse is the output-object
+// for requesting a runner by name
+type RunnerGetResponse struct {
+	Runner Runner
+}
+
+// CaseSettings holds information about the cases
+// if Processing-stage is used for a Runner
+type CaseSettings struct {
+	// Base for the datastore
+	datastore.Base
+
+	// CaseLocation is the parent-folder
+	// for all cases
+	CaseLocation string
+
+	// Case holds the information for the single-case
+	CaseID uint // foreign-key
+	Case   *Case
+
+	// CompoundCase holds the information for the compound-case
+	CompoundCaseID uint // foreign-key
+	CompoundCase   *Case
+
+	// ReviewCompound holds the information for the review-compound
+	ReviewCompoundID uint // foreign-key
+	ReviewCompound   *Case
+}
+
+// Case holds the information for a case
+type Case struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Name of the case
+	Name string
+
+	// Directory of the case
+	Directory string
+
+	// Description of the case
+	Description string
+
+	// Investigator of the case
+	Investigator string
+}
+
+type StageRequest struct {
+	StageID uint
+}
+
+type StageResponse struct {
+	Stage Stage
+}
+
+// Stage holds different types of stages for a Runner
+type Stage struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Foreign-key for runners
+	RunnerID uint
+
+	// Process-stage processes data into a Nuix-case
+	Process *Process
+
+	// SearchAndTag searches and tags data in a Nuix-case
+	SearchAndTag *SearchAndTag
+
+	// Populate populates data based on a search in a Nuix-case
+	Populate *Populate
+
+	// Ocr performs OCR based on a search in a Nuix-case
+	Ocr *Ocr
+
+	// Exclude excludes items in a Nuix-case based on a search
+	Exclude *Exclude
+
+	// Reload reloads items in a Nuix-case based on a search
+	Reload *Reload
+}
+
+// Process -stage processes data into a Nuix-case
+type Process struct {
+	// Base for the datastore
+	datastore.Base
+
+	// Foreign-key for stage
+	StageID uint
+
+	// Profile for the processor
+	Profile     string
+	ProfilePath string
+
+	// EvidenceStore to process to the nuix-case
+	EvidenceStore []*Evidence
+
+	// Status for the stage
+	Status int64
+}
+
+// Evidence holds information about a specific evidence
+type Evidence struct {
+	// Base for the datastore
+	datastore.Base
+
+	// ProcessID foreign-key for process-table
+	ProcessID uint
+
+	// Name of the evidence
+	Name string
+
+	// Directory of where the evidence is located
+	Directory string
+
+	// Description of the evidence
+	Description string
+
+	// Encoding for the evidence (used when processing)
+	Encoding string
+
+	// TimeZone for the evidence
+	TimeZone string
+
+	// Custodian for the evidence
+	Custodian string
+
+	// Locale for the evidence (used when processing)
+	Locale string
+}
+
+// SearchAndTag searches and tags data in a Nuix-case
+type SearchAndTag struct {
+	// Base for the datastore
+	datastore.Base
+
+	// StageID foreign-key for stage-table
+	StageID uint
+
+	// Search query in the case
+	Search string
+
+	// Tag for the items from the search
+	Tag string
+
+	// Files for the search-and-tag
+	Files []*File
+
+	// Status for the stage
+	Status int64
+}
+
+// Populate populates data based on a search in a Nuix-case
+type Populate struct {
+	// Base for the datastore
+	datastore.Base
+
+	// StageID foreign-key for stage-table
+	StageID uint
+
+	// Search query in the case
+	Search string
+	// Types for the items to populate
+	Types []*Type
+	// Status for the stage
+	Status int64
+}
+
+// Type holds information for a type
+type Type struct {
+	// Base for the datastore
+	datastore.Base
+
+	// PopulateID foreign-key for populate-table
+	PopulateID uint
+
+	// Type-name
+	Type string
+
+	// Status for the stage
+	Status int64
+}
+
+// Ocr performs OCR based on a search in a Nuix-case
+type Ocr struct {
+	// Base for the datastore
+	datastore.Base
+
+	// StageID foreign-key for stage-table
+	StageID uint
+
+	// Profile for the ocr-processor
+	Profile     string
+	ProfilePath string
+
+	// Search query in the case
+	Search string
+
+	// Status for the stage
+	Status int64
+}
+
+// Exclude excludes items in a Nuix-case based on a search
+type Exclude struct {
+	// Base for the datastore
+	datastore.Base
+
+	// StageID foreign-key for stage-table
+	StageID uint
+
+	// Search query in the case
+	Search string
+
+	// Reason to exclude the items from the search
+	Reason string
+
+	// Status for the stage
+	Status int64
+}
+
+// Reload reloads items in a Nuix-case based on a search
+type Reload struct {
+	// Base for the datastore
+	datastore.Base
+
+	// StageID foreign-key for stage-table
+	StageID uint
+
+	// Profile for the reload-processing
+	Profile     string
+	ProfilePath string
+
+	// Search query in the case
+	Search string
+
+	// Status for the stage
+	Status int64
+}
+
+// File holds information about a file
+type File struct {
+	// Base for the datastore
+	datastore.Base
+
+	// SearchAndTagID foreign-key for searchandtag-table
+	SearchAndTagID uint
+
+	// Path for where the file is located at
+	Path string
+}
