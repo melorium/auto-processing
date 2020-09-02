@@ -132,8 +132,21 @@ func (r *run) start() error {
 		return fmt.Errorf("failed to generate script for runner: %s - %v", r.runner.Name, err)
 	}
 
+	// Start a new remote ps-session
 	log.Printf("creating new ps-session @ %s", r.runner.Hostname)
-	client, err := powershell.NewClient(r.runner.Hostname, r.queue.shell)
+	var client *powershell.Client
+	if len(r.server.Username) == 0 {
+		// Start NewClient without credentials if username is not in the server
+		client, err = powershell.NewClient(r.runner.Hostname, r.queue.shell)
+	} else {
+		client, err = powershell.NewClientWithCredentials(
+			r.runner.Hostname,
+			r.queue.shell,
+			r.server.Username,
+			r.server.Password,
+		)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to create remote-client for powershell: %v", err)
 	}

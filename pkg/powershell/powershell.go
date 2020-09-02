@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bhendo/go-powershell/utils"
 	ps "github.com/simonjanss/go-powershell"
 	"github.com/simonjanss/go-powershell/middleware"
+	"github.com/simonjanss/go-powershell/utils"
 )
 
 type Client struct {
@@ -23,8 +23,19 @@ func NewClient(host string, shell ps.Shell) (*Client, error) {
 	// prepare remote session configuration
 	config := middleware.NewSessionConfig()
 	config.ComputerName = host
-	//config.Credential = middleware.UserPasswordCredential{Username: "", Password: ""}
+	return newClient(shell, config)
+}
 
+// NewClientWithCredentials creates a new client with username and password
+func NewClientWithCredentials(host string, shell ps.Shell, username, password string) (*Client, error) {
+	// prepare remote session configuration
+	config := middleware.NewSessionConfig()
+	config.ComputerName = host
+	config.Credential = middleware.UserPasswordCredential{Username: username, Password: password}
+	return newClient(shell, config)
+}
+
+func newClient(shell ps.Shell, config *middleware.SessionConfig) (*Client, error) {
 	// create a new shell by wrapping the existing one in the session middleware
 	session, err := middleware.NewSession(shell, config)
 	if err != nil {
@@ -32,7 +43,7 @@ func NewClient(host string, shell ps.Shell) (*Client, error) {
 	}
 
 	return &Client{
-		Host:    host,
+		Host:    config.ComputerName,
 		Shell:   shell,
 		Session: session,
 	}, nil
