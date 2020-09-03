@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	avian "github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
@@ -117,9 +116,7 @@ func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api
 		return nil, fmt.Errorf("did not get requested stage : %v", err)
 	}
 
-	log.Println(stage.SearchAndTag)
 	avian.SetStatusRunning(&stage)
-	log.Println(stage.SearchAndTag)
 	if err := s.db.Save(&stage).Error; err != nil {
 		return nil, fmt.Errorf("failed to update stage to running: %v", err)
 	}
