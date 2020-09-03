@@ -91,7 +91,16 @@ func (c *Client) CreateFile(path, name string, data []byte) error {
 		return err
 	}
 
-	copyCmd := fmt.Sprintf("Copy-Item %s\\%s -Destination %s\\%s -ToSession $%s", wd, file.Name(), path, name, sess)
+	// create the command for copying the file
+	copyCmd := fmt.Sprintf("Copy-Item %s\\%s -Destination %s\\%s -ToSession $%s",
+		wd,
+		FormatFilename(file.Name()),
+		path,
+		FormatFilename(name),
+		sess,
+	)
+
+	// execute the command
 	_, _, err = c.Shell.Execute(copyCmd)
 	if err != nil {
 		os.Remove(file.Name())
@@ -145,6 +154,28 @@ func (c *Client) ListGem(nuixPath string) error {
 
 func (c *Client) SetEnv(variable, arg string) error {
 	_, _, err := c.Session.Execute(fmt.Sprintf("$Env:%s = '%s'", variable, arg))
+	return err
+}
+
+func (c *Client) Echo(arg string) (string, error) {
+	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("echo %s", arg))
+	if err != nil {
+		return "", err
+	}
+	if stderr != "" {
+		return "", fmt.Errorf("stderr: %s", stderr)
+	}
+	return stdout, nil
+}
+
+func (c *Client) RunWithCmd(path string, args ...string) error {
+	// Set the location to path
+	if err := c.setLocation(path); err != nil {
+		return err
+	}
+
+	cmd := strings.Join(args, " ")
+	_, _, err := c.Session.Execute(fmt.Sprintf("cmd.exe /c '.\\%s'", cmd))
 	return err
 }
 
@@ -206,6 +237,13 @@ func (c *Client) getExitCode() (int64, error) {
 
 	stdout = strings.Replace(stdout, "\r\n", "", 1)
 	return strconv.ParseInt(stdout, 10, 64)
+}
+
+func FormatFilename(filename string) string {
+	if strings.Contains(filename, " ") {
+		return fmt.Sprintf(`"%s"`, filename)
+	}
+	return filename
 }
 
 // FormatPath formats the path

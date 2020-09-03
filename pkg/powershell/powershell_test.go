@@ -130,7 +130,73 @@ func TestSetEnv(t *testing.T) {
 	is.NoErr(err)
 	defer client.Close()
 
-	err = client.SetEnv("hello", "simon")
+	var tt = []struct {
+		name     string
+		variable string
+		arg      string
+		expected string
+		fail     bool
+	}{
+		{name: "EnvSucceed", variable: "FOO", arg: "bar", expected: "bar"},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			err := client.SetEnv(tc.variable, tc.arg)
+			is.NoErr(err)
+
+			echo, err := client.Echo("$env:" + tc.variable)
+			fmt.Println(echo, tc.expected)
+			is.Equal(echo, tc.expected)
+		})
+	}
+
+}
+
+func TestRunWithCmd(t *testing.T) {
+	is := is.New(t)
+
+	// start a local powershell process
+	shell, err := ps.New(&backend.Local{})
+	is.NoErr(err)
+	defer shell.Close()
+
+	// Information for the remote-server
+	host := "sune.avian.dk" // os.Getenv("TEST_SERVER")
+
+	// Create a new remote-client with the config and the powershell-process
+	// a client holds the existing powershell-process and the remote-session
+	client, err := powershell.NewClientWithCredentials(host, shell, "user", "secret!")
+	is.NoErr(err)
+	defer client.Close()
+
+	// FormatPath formats the path if it has spaces
+	nuixPath := powershell.FormatPath("C:\\Program Files\\Nuix\\Nuix 8.4")
+	scriptName := "test.rb"
+	/*
+		err = client.CreateFile(nuixPath, scriptName, []byte(`puts('hello')`))
+		is.NoErr(err)
+		defer client.RemoveFile(nuixPath, scriptName)
+	*/
+
+	xmx := "2g"
+	address := "avian-server1.avian.dk"
+	port := 27443
+	licence := "enterprise-workstation"
+	workers := 1
+	err = client.RunWithCmd(
+		nuixPath,
+		"nuix_console.exe",
+		"-Xmx"+xmx,
+		"-Dnuix.registry.servers="+address,
+		"-licencesourcetype", "server",
+		"-licencesourcelocation", fmt.Sprintf("%s:%d", address, port),
+		"-licencetype", licence,
+		"-licenceworkers", fmt.Sprintf("%d", workers),
+		"-signout",
+		"-release",
+		scriptName,
+	)
 	is.NoErr(err)
 }
 
@@ -153,14 +219,10 @@ func TestCreateFile(t *testing.T) {
 
 	// FormatPath formats the path if it has spaces
 	nuixPath := powershell.FormatPath("C:\\Program Files\\Nuix\\Nuix 8.4")
-
-	start := time.Now()
-	//err = client.SetupNuix(nuixPath)
-	err = client.CreateFile(nuixPath, "runner.gen.rb", []byte(`puts('hello')`))
+	scriptName := "test .rb"
+	err = client.CreateFile(nuixPath, scriptName, []byte(`puts('hello')`))
 	is.NoErr(err)
-	fmt.Println("time elapsed:", time.Since(start))
 
-	start = time.Now()
 	err = client.Run(
 		nuixPath,
 		"nuix_console.exe",
@@ -175,7 +237,6 @@ func TestCreateFile(t *testing.T) {
 		"runner.gen.rb",
 	)
 	is.NoErr(err)
-	fmt.Println("time elapsed:", time.Since(start))
 }
 
 func TestFormatPath(t *testing.T) {
