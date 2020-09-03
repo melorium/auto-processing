@@ -151,10 +151,12 @@ func (r *run) start() error {
 		return fmt.Errorf("failed to create remote-client for powershell: %v", err)
 	}
 
+	// Set nuix username as an env-variable
 	if err := client.SetEnv("NUIX_USERNAME", r.nms.Username); err != nil {
 		return fmt.Errorf("unable to set NUIX_USERNAME env-variable: %v", err)
 	}
 
+	// Set nuix password as an env-variable
 	if err := client.SetEnv("NUIX_PASSWORD", r.nms.Password); err != nil {
 		return fmt.Errorf("unable to set NUIX_PASSWORD env-variable: %v", err)
 	}
@@ -162,22 +164,23 @@ func (r *run) start() error {
 	nuixPath := powershell.FormatPath(r.server.NuixPath)
 	log.Printf("Formatted path from: %s to %s", r.server.NuixPath, nuixPath)
 
-	scriptName := r.runner.Name + ".gen.rb"
+	scriptName := powershell.FormatFilename(r.runner.Name + ".gen.rb")
 	log.Printf("creating script: %s to path: %s @ %s", scriptName, nuixPath, r.runner.Hostname)
 	if err := client.CreateFile(nuixPath, scriptName, []byte(script)); err != nil {
 		return fmt.Errorf("Failed to create script-file: %v", err)
 	}
 	defer client.RemoveFile(nuixPath, scriptName)
 
-	log.Printf("Starting runner: %s", r.runner.Name)
-	return client.Run(
+	log.Printf("Starting runner: %s - host: %s - licenceserver: %s - licencetype: %s",
+		r.runner.Name, r.server.Hostname, r.nms.Address, r.runner.Licence)
+	return client.RunWithCmd(
 		nuixPath,
 		"nuix_console.exe",
-		"-Xmx2g",
-		//"-Dnuix.registry.servers=license.avian.dk",
+		"-Xmx"+r.runner.Xmx,
+		"-Dnuix.registry.servers="+r.nms.Address,
 		"-licencesourcetype", "server",
-		"-licencetype", r.runner.Licence,
 		"-licencesourcelocation", fmt.Sprintf("%s:%d", r.nms.Address, r.nms.Port),
+		"-licencetype", r.runner.Licence,
 		"-licenceworkers", fmt.Sprintf("%d", r.runner.Workers),
 		"-signout",
 		"-release",
