@@ -31,9 +31,12 @@ func (r *Runner) Validate() error {
 		return errors.New("must specify amount of workers")
 	}
 
-	for _, stage := range r.Stages {
+	for i, stage := range r.Stages {
 		if err := stage.Validate(); err != nil {
 			return err
+		}
+		if stage.Nil() {
+			return fmt.Errorf("Stage: %d - unable to parse what stage it is - check syntax", i+1)
 		}
 		if stage.Process != nil {
 			if err := r.CaseSettings.Validate(); err != nil {
@@ -42,6 +45,15 @@ func (r *Runner) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (s *Stage) Nil() bool {
+	return (s.Process == nil &&
+		s.SearchAndTag == nil &&
+		s.Exclude == nil &&
+		s.Reload == nil &&
+		s.Populate == nil &&
+		s.Ocr == nil)
 }
 
 // Validate validates a Stage
