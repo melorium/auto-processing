@@ -13,29 +13,36 @@ import (
 )
 
 type Client struct {
-	Host    string
-	Shell   ps.Shell
-	Session middleware.Middleware
+	Host     string
+	Username string
+	Password string
+	Shell    ps.Shell
+	Session  middleware.Middleware
+}
+
+type Options struct {
+	Host                  string
+	Username              string
+	Password              string
+	AllowRedirection      bool
+	Authentication        string
+	CertificateThumbprint string
+	Port                  int
+	UseSSL                bool
 }
 
 // NewClient creates a new remote-client
-func NewClient(host string, shell ps.Shell) (*Client, error) {
+func NewClient(shell ps.Shell, opts Options) (*Client, error) {
 	// prepare remote session configuration
 	config := middleware.NewSessionConfig()
-	config.ComputerName = host
-	return newClient(shell, config)
-}
+	config.ComputerName = opts.Host
+	if len(opts.Username) != 0 {
+		config.Credential = middleware.UserPasswordCredential{
+			Username: opts.Username,
+			Password: opts.Password,
+		}
+	}
 
-// NewClientWithCredentials creates a new client with username and password
-func NewClientWithCredentials(host string, shell ps.Shell, username, password string) (*Client, error) {
-	// prepare remote session configuration
-	config := middleware.NewSessionConfig()
-	config.ComputerName = host
-	config.Credential = middleware.UserPasswordCredential{Username: username, Password: password}
-	return newClient(shell, config)
-}
-
-func newClient(shell ps.Shell, config *middleware.SessionConfig) (*Client, error) {
 	// create a new shell by wrapping the existing one in the session middleware
 	session, err := middleware.NewSession(shell, config)
 	if err != nil {
@@ -43,9 +50,11 @@ func newClient(shell ps.Shell, config *middleware.SessionConfig) (*Client, error
 	}
 
 	return &Client{
-		Host:    config.ComputerName,
-		Shell:   shell,
-		Session: session,
+		Host:     config.ComputerName,
+		Username: opts.Username,
+		Password: opts.Password,
+		Shell:    shell,
+		Session:  session,
 	}, nil
 }
 
@@ -85,7 +94,30 @@ func (c *Client) CreateFile(path, name string, data []byte) error {
 
 	sess := utils.CreateRandomString(8)
 
-	_, _, err = c.Shell.Execute(fmt.Sprintf("$%s = New-PSSession -ComputerName %s", sess, c.Host))
+	// Create new session command
+	var newSessionCMD string
+	if len(c.Username) == 0 {
+		newSessionCMD = fmt.Sprintf("$%s = New-PSSession -ComputerName %s", sess, c.Host)
+	} else {
+		_, _, err := c.Shell.Execute(fmt.Sprintf("$%s = ConvertTo-SecureString -String %s -AsPlainText -Force", "pw"+sess, utils.QuoteArg(c.Password)))
+		if err != nil {
+			return fmt.Errorf("Could not convert password to secure string: %v", err)
+		}
+
+		_, _, err = c.Shell.Execute(fmt.Sprintf("$%s = New-Object -TypeName 'System.Management.Automation.PSCredential' -ArgumentList %s, $%s",
+			"cred"+sess,
+			utils.QuoteArg(c.Username),
+			"pw"+sess,
+		))
+
+		if err != nil {
+			return fmt.Errorf("Could not create PSCredential object : %v", err)
+		}
+
+		newSessionCMD = fmt.Sprintf("$%s = New-PSSession -ComputerName '%s' -Credential $%s", sess, c.Host, "cred"+sess)
+	}
+
+	_, _, err = c.Shell.Execute(newSessionCMD)
 	if err != nil {
 		os.Remove(file.Name())
 		return err
@@ -175,7 +207,13 @@ func (c *Client) RunWithCmd(path string, args ...string) error {
 	}
 
 	cmd := strings.Join(args, " ")
-	_, _, err := c.Session.Execute(fmt.Sprintf("cmd.exe /c '.\\%s'", cmd))
+	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("cmd.exe /c '.\\%s'", cmd))
+	if stderr != "" {
+		return fmt.Errorf("stderr: %s", stderr)
+	}
+	if strings.Contains(stdout, "ERROR") {
+		return fmt.Errorf("stdout: %s", stdout)
+	}
 	return err
 }
 
