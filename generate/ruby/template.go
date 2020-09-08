@@ -62,12 +62,49 @@ def open_case(settings)
       caze = @case_factory.create(settings['directory'], settings)
 
     rescue java.io.IOException => exception
-	  STDERR.puts("problem creating new case, case might already be open: #{exception.backtrace}")
+	    STDERR.puts("problem creating new case, case might already be open: #{exception.backtrace}")
       exit(false)
     end
   end
   return caze
 end
+
+# tear down the cases 
+def tear_down(single_case, compound_case, review_compound)
+  begin
+    puts('Starting case tear-down')
+    unless compound_case.nil?
+      puts('Adding single-case to compound')
+      compound_case.add_child_case(single_case) # Add the newly processed case to the compound-case
+      puts('Added single-case to compound-case')
+      puts('Closing compound-case')
+      compound_case.close()
+      puts('Closed compound-case')
+    else
+      puts('Did not close compound-case')
+    end
+
+    unless review_compound.nil?
+      puts('Adding single-case to review_compound')
+      review_compound.add_child_case(single_case)
+      puts('Added single-case to review_compound-case')
+      puts('Closing review-compound')
+      compound_case.close()
+      puts('Closed review-compound')
+    else
+      puts('Did not close review-compound')
+    end
+    
+    puts('Closing single-case')
+    single_case.close()
+    puts('Closed single-case')
+  rescue => e
+    # Handle the exception
+    STDERR.puts("Failed to tear-down cases: #{e}")
+    exit(false)
+  end
+end
+
 <%= if (process(runner)) { %>
 begin
   # Create or open the single-case
@@ -92,7 +129,7 @@ begin
 
   # Create or open the review-compound
   puts('Opening review-compound: <%= runner.CaseSettings.ReviewCompound.Name %>')
-  review_case = open_case({ 
+  review_compound = open_case({ 
     'name' => '<%= runner.CaseSettings.ReviewCompound.Name %>',
     'directory' => '<%= runner.CaseSettings.ReviewCompound.Directory %>',
     'description' => '<%= runner.CaseSettings.ReviewCompound.Description %>',
@@ -101,7 +138,7 @@ begin
   })
 rescue => e
   # Handle the exception
-  puts("failed to create/open case: #{e}")
+  STDERR.puts("failed to create/open case: #{e}")
   exit(false)
 end
 
@@ -127,11 +164,12 @@ begin
   container_<%= i %>.set_time_zone('<%= evidence.TimeZone %>')
   container_<%= i %>.set_initial_custodian('<%= evidence.Custodian %>')
   container_<%= i %>.set_locale('<%= evidence.Locale %>')
+  container_<%= i %>.save
   <% } %>
-
 rescue => e
   # handle exception
-  puts("error initializing processor #{e}")
+  STDERR.puts("error initializing processor #{e}")
+  tear_down(single_case, compound_case, review_compound)
   exit(false)
 end
 
@@ -154,9 +192,21 @@ begin
 rescue => e
   # Handle the exception
   # Set the process-stage to failed (update api)
+  tear_down(single_case, compound_case, review_compound)
   failed(<%= getProcessingStageID(runner) %>)
+  STDERR.puts("Processing failed: #{e}")
   exit(false)
 end
+<% } else { %>
+# Open single_case
+puts('Opening single-case: <%= runner.CaseSettings.Case.Name %>')
+single_case = open_case({ 
+  'name' => '<%= runner.CaseSettings.Case.Name %>',
+  'directory' => '<%= runner.CaseSettings.Case.Directory %>',
+  'description' => '<%= runner.CaseSettings.Case.Description %>',
+  'investigator' => '<%= runner.CaseSettings.Case.Investigator %>',
+  'compound' => false,
+})
 <% } %><%= for (i, s) in getStages(runner) { %><%= if (searchAndTag(s)) { %>
 # Start stage: <%= i %>
 begin
@@ -193,8 +243,14 @@ rescue => e
   
   # Set the SearchAndTag-stage to failed (update api)
   failed(<%= s.ID %>)
-
-  puts("Failed to run stage id <%= s.ID %> : #{e}")
+  <%= if (process(runner)) { %>
+  # Tear down the cases
+  tear_down(single_case, compound_case, review_compound)
+  <% } else { %>
+  # Tear down the single-case
+  tear_down(single_case, nil, nil)
+  <% } %>
+  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (exclude(s)) { %>
@@ -218,8 +274,14 @@ rescue => e
 
   # Set the Exclude-stage to failed (update api)
   failed(<%= s.ID %>)
-
-  puts("Failed to run stage id <%= s.ID %> : #{e}")
+  <%= if (process(runner)) { %>
+  # Tear down the cases
+  tear_down(single_case, compound_case, review_compound)
+  <% } else { %>
+  # Tear down the single-case
+  tear_down(single_case, nil, nil)
+  <% } %>
+  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (ocr(s)) { %>
@@ -259,8 +321,14 @@ rescue => e
 
   # Set the OCR-stage to failed (update api)
   failed(<%= s.ID %>)
-
-  puts("Failed to run stage id <%= s.ID %> : #{e}")
+  <%= if (process(runner)) { %>
+  # Tear down the cases
+  tear_down(single_case, compound_case, review_compound)
+  <% } else { %>
+  # Tear down the single-case
+  tear_down(single_case, nil, nil)
+  <% } %>
+  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (populate(s)) { %>
@@ -328,8 +396,14 @@ rescue => e
 
   # Set the Populate-stage to failed (update api)
   failed(<%= s.ID %>)
-
-  puts("Failed to run stage id <%= s.ID %> : #{e}")
+  <%= if (process(runner)) { %>
+  # Tear down the cases
+  tear_down(single_case, compound_case, review_compound)
+  <% } else { %>
+  # Tear down the single-case
+  tear_down(single_case, nil, nil)
+  <% } %>
+  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (reload(s)) { %>
@@ -380,8 +454,14 @@ rescue => e
 
   # Set the Reload-stage to failed (update api)
   failed(<%= s.ID %>)
-
-  puts("Failed to run stage id <%= s.ID %> : #{e}")
+  <%= if (process(runner)) { %>
+  # Tear down the cases
+  tear_down(single_case, compound_case, review_compound)
+  <% } else { %>
+  # Tear down the single-case
+  tear_down(single_case, nil, nil)
+  <% } %>
+  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
   exit(false)
 end<% } %><% } %><% } %><% } %>
 `
