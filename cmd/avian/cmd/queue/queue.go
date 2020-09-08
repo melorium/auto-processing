@@ -3,12 +3,14 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"log"
+	"strings"
 	"time"
 
 	"github.com/avian-digital-forensics/auto-processing/generate/ruby"
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
+	"github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
 	"github.com/avian-digital-forensics/auto-processing/pkg/powershell"
+	"go.uber.org/zap"
 
 	"github.com/jinzhu/gorm"
 	ps "github.com/simonjanss/go-powershell"
@@ -19,18 +21,19 @@ const (
 )
 
 type Queue struct {
-	db    *gorm.DB
-	shell ps.Shell
-	uri   string
+	db     *gorm.DB
+	shell  ps.Shell
+	uri    string
+	logger *zap.Logger
 }
 
 // New returns a new queue
-func New(db *gorm.DB, shell ps.Shell, uri string) Queue {
-	return Queue{db: db, shell: shell, uri: uri}
+func New(db *gorm.DB, shell ps.Shell, uri string, logger *zap.Logger) Queue {
+	return Queue{db: db, shell: shell, uri: uri, logger: logger}
 }
 
 func (q *Queue) Start() {
-	log.Println("queue started")
+	q.logger.Info("Queue started")
 	for {
 		q.loop()
 		time.Sleep(time.Duration(sleepMinutes * time.Minute))
@@ -38,39 +41,51 @@ func (q *Queue) Start() {
 }
 
 func (q *Queue) loop() {
-	log.Printf("getting runners from queue")
+	q.logger.Debug("Getting runners from queue")
 	runners, err := getRunners(q.db)
 	if err != nil {
-		log.Printf("cannot get runners: %v", err)
+		q.logger.Error("cannot get runners", zap.String("exception", err.Error()))
 		return
 	}
-	log.Printf("found %d runners from queue", len(runners))
+	q.logger.Debug("Found runners from Queue", zap.Int("amount", len(runners)))
 
 	for _, runner := range runners {
+		q.logger.Debug("Trying to start runner", zap.String("runner", runner.Name))
+
 		// check if the runners server is active
 		var server api.Server
 		query := q.db.Where("active = ? and hostname = ?", false, runner.Hostname)
 		if query.First(&server).RecordNotFound() {
-			log.Printf("server %s is already active", runner.Hostname)
+			q.logger.Debug("Server is already active", zap.String("runner", runner.Name), zap.String("server", runner.Hostname))
 			continue
 		}
-
-		log.Println(server)
 
 		// Check to see if licence is active
 		nms, err := activeLicence(q.db, runner.Nms, runner.Licence, runner.Workers)
 		if err != nil {
-			log.Printf("unable to get licence : %v", err)
+			q.logger.Debug("Failed to fetch licence from NMS",
+				zap.String("runner", runner.Name),
+				zap.String("nms", runner.Nms),
+				zap.String("licencetype", runner.Licence),
+				zap.String("exception", err.Error()),
+			)
 			continue
 		}
 
 		// create a new run
-		log.Printf("Creating new run: %s", runner.Name)
 		run := q.newRun(runner, &server, nms)
 		if err := run.setActive(); err != nil {
-			log.Printf("setActive: %v", err)
+			q.logger.Error("Cannot set runner to active", zap.String("exception", err.Error()))
 			continue
 		}
+
+		q.logger.Info("Starting runner",
+			zap.String("runner", runner.Name),
+			zap.String("server", runner.Hostname),
+			zap.String("nms", runner.Nms),
+			zap.String("licence", runner.Licence),
+			zap.Int("workers", int(runner.Workers)),
+		)
 
 		go run.handle(run.start())
 	}
@@ -126,30 +141,42 @@ func (r *run) setActive() error {
 
 func (r *run) start() error {
 	// Generate the ruby-script for the runner
-	log.Printf("generating script for runner: %s", r.runner.Name)
+	r.queue.logger.Info("Generating script for runner", zap.String("runner", r.runner.Name))
 	script, err := ruby.Generate(r.queue.uri, *r.runner)
 	if err != nil {
 		return fmt.Errorf("failed to generate script for runner: %s - %v", r.runner.Name, err)
 	}
+	r.queue.logger.Debug("Script has been generated", zap.String("runner", r.runner.Name))
 
-	// Start a new remote ps-session
-	log.Printf("creating new ps-session @ %s", r.runner.Hostname)
-	var client *powershell.Client
-	if len(r.server.Username) == 0 {
-		// Start NewClient without credentials if username is not in the server
-		client, err = powershell.NewClient(r.runner.Hostname, r.queue.shell)
-	} else {
-		client, err = powershell.NewClientWithCredentials(
-			r.runner.Hostname,
-			r.queue.shell,
-			r.server.Username,
-			r.server.Password,
+	// Create powershell-connection
+	r.queue.logger.Info("Starting powershell-connection for runner",
+		zap.String("runner", r.runner.Name),
+		zap.String("server", r.server.Hostname),
+	)
+
+	// set options for the connection
+	var opts powershell.Options
+	opts.Host = r.server.Hostname
+	if len(r.server.Username) != 0 {
+		r.queue.logger.Debug("Adding credentials for powershell-session",
+			zap.String("runner", r.runner.Name),
+			zap.String("server", r.server.Hostname),
 		)
+		opts.Username = r.server.Username
+		opts.Password = r.server.Password
 	}
 
+	// create the client
+	client, err := powershell.NewClient(r.queue.shell, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create remote-client for powershell: %v", err)
 	}
+	defer client.Close()
+
+	r.queue.logger.Debug("Powershell-client has been created for runner",
+		zap.String("runner", r.runner.Name),
+		zap.String("server", r.server.Hostname),
+	)
 
 	// Set nuix username as an env-variable
 	if err := client.SetEnv("NUIX_USERNAME", r.nms.Username); err != nil {
@@ -162,17 +189,27 @@ func (r *run) start() error {
 	}
 
 	nuixPath := powershell.FormatPath(r.server.NuixPath)
-	log.Printf("Formatted path from: %s to %s", r.server.NuixPath, nuixPath)
+	scriptName := r.runner.Name + ".gen.rb"
 
-	scriptName := powershell.FormatFilename(r.runner.Name + ".gen.rb")
-	log.Printf("creating script: %s to path: %s @ %s", scriptName, nuixPath, r.runner.Hostname)
+	r.queue.logger.Info("Creating runner-script to server",
+		zap.String("runner", r.runner.Name),
+		zap.String("server", r.server.Hostname),
+		zap.String("script", scriptName),
+	)
+
 	if err := client.CreateFile(nuixPath, scriptName, []byte(script)); err != nil {
 		return fmt.Errorf("Failed to create script-file: %v", err)
 	}
 	defer client.RemoveFile(nuixPath, scriptName)
 
-	log.Printf("Starting runner: %s - host: %s - licenceserver: %s - licencetype: %s",
-		r.runner.Name, r.server.Hostname, r.nms.Address, r.runner.Licence)
+	r.queue.logger.Info("STARTING RUNNER",
+		zap.String("runner", r.runner.Name),
+		zap.String("server", r.server.Hostname),
+		zap.String("script", scriptName),
+		zap.String("nms", r.nms.Address),
+		zap.String("licence", r.runner.Licence),
+		zap.Int("workers", int(r.runner.Workers)),
+	)
 	return client.RunWithCmd(
 		nuixPath,
 		"nuix_console.exe",
@@ -189,38 +226,73 @@ func (r *run) start() error {
 }
 
 func (r *run) handle(err error) {
+	logger := r.queue.logger.With(
+		zap.String("runner", r.runner.Name),
+		zap.String("server", r.server.Hostname),
+		zap.String("nms", r.nms.Address),
+		zap.String("licence", r.runner.Licence),
+		zap.Int("workers", int(r.runner.Workers)),
+	)
+
 	db := r.queue.db
 	defer r.close()
 
-	// get the latest runner info
-	var runner api.Runner
-	if err := db.First(&runner, r.runner.ID).Error; err != nil {
-		log.Printf("failed to get runner-information for: %s : %v", r.runner.Name, err)
-	}
+	logger.Debug("Runner has stopped")
 
-	runner.Active = false
-	runner.Finished = true
+	// bool to check if runner is finished
+	var isFinished = true
 
 	// handle the error
 	if err != nil {
-		runner.Finished = false
-		log.Printf("runner: %s failed : %v", r.runner.Name, err)
+		isFinished = false // if we got an error - means runner failed
+		logger.Error("Runner failed", zap.String("exception", nuixError(err).Error()))
+	}
+
+	// get the latest runner info
+	runner, err := getRunnerByName(db, r.runner.Name)
+	if err != nil {
+		logger.Fatal("Cannot get runners information from DB - will not be able to handle runner", zap.String("exception", err.Error()))
+		return
+	}
+
+	// check if stages has finished
+	for _, stage := range runner.Stages {
+		if !avian.HasFinished(stage) {
+			isFinished = false
+			logger.Error("Runner failed at stage", zap.Int("stage_id", int(stage.ID)))
+		}
 	}
 
 	// update the runner to db
+	runner.Active = false
+	runner.Finished = isFinished
 	if err := db.Save(&runner).Error; err != nil {
-		log.Printf("Cannot save runner-information for %s : %v", r.runner.Name, err)
+		logger.Error("Cannot save the updated runner-information to DB", zap.String("exception", err.Error()))
+	}
+
+	if runner.Finished {
+		logger.Info("FINISHED RUNNER")
+	} else {
+		logger.Info("FAILED RUNNER")
 	}
 
 	// Set server to inactive
 	if err := db.Model(&api.Server{}).Where("id = ?", r.server.ID).Update("active", false).Error; err != nil {
-		log.Printf("Failed to set server %s to in-active: %v", r.server.Hostname, err)
+		r.queue.logger.Error("Cannot set server to inactive",
+			zap.String("runner", r.runner.Name),
+			zap.String("server", r.server.Hostname),
+			zap.String("exception", err.Error()),
+		)
 	}
 
 	// Get the latest data for the nms-server
 	var nms api.Nms
 	if err := db.Preload("Licences").First(&nms, r.nms.ID).Error; err != nil {
-		log.Printf("Cannot get nms %s from db : %v", r.nms.Address, err)
+		r.queue.logger.Error("Cannot get NMS from DB",
+			zap.String("runner", r.runner.Name),
+			zap.String("nms", r.nms.Address),
+			zap.String("exception", err.Error()),
+		)
 		return
 	}
 
@@ -230,7 +302,12 @@ func (r *run) handle(err error) {
 		if lic.Type == r.runner.Licence {
 			lic.InUse = lic.InUse - 1
 			if err := db.Save(&lic).Error; err != nil {
-				log.Printf("failed to reset licence for runner: %s", r.runner.Name)
+				r.queue.logger.Error("Cannot update licence-information to DB",
+					zap.String("runner", r.runner.Name),
+					zap.String("nms", r.nms.Address),
+					zap.String("licence", lic.Type),
+					zap.String("exception", err.Error()),
+				)
 				return
 			}
 		}
@@ -238,7 +315,12 @@ func (r *run) handle(err error) {
 
 	// update the nms to the db
 	if err := db.Save(&nms).Error; err != nil {
-		log.Printf("Failed to reset nms %s : %v", r.nms.Address, err)
+		r.queue.logger.Error("Cannot update nms-information to DB",
+			zap.String("runner", r.runner.Name),
+			zap.String("nms", r.nms.Address),
+			zap.String("licence", r.runner.Licence),
+			zap.String("exception", err.Error()),
+		)
 	}
 
 	return
@@ -248,7 +330,7 @@ func (r *run) close() error {
 	if r == nil {
 		return errors.New("run is already closed")
 	}
-	log.Printf("Closing runner: %v", r)
+	r.queue.logger.Debug("Closing runner", zap.String("runner", r.runner.Name))
 
 	r.queue = nil
 	r.runner = nil
@@ -271,6 +353,21 @@ func getRunners(db *gorm.DB) ([]*api.Runner, error) {
 		Where("active = ? and finished = ?", false, false).
 		Find(&runners).Error
 	return runners, err
+}
+
+func getRunnerByName(db *gorm.DB, name string) (*api.Runner, error) {
+	var runner api.Runner
+	err := db.Preload("Stages.Process.EvidenceStore").
+		Preload("Stages.SearchAndTag.Files").
+		Preload("Stages.Exclude").
+		Preload("Stages.Ocr").
+		Preload("Stages.Reload").
+		Preload("Stages.Populate.Types").
+		Preload("CaseSettings.Case").
+		Preload("CaseSettings.CompoundCase").
+		Preload("CaseSettings.ReviewCompound").
+		Find(&runner, "name = ?", name).Error
+	return &runner, err
 }
 
 func activeLicence(db *gorm.DB, address, licencetype string, workers int64) (*api.Nms, error) {
@@ -296,4 +393,19 @@ func activeLicence(db *gorm.DB, address, licencetype string, workers int64) (*ap
 		}
 	}
 	return nil, fmt.Errorf("did not find licencetype: %s", licencetype)
+}
+
+func nuixError(err error) error {
+	if !strings.Contains(err.Error(), "Caused by:") {
+		return err
+	}
+
+	errSlice := strings.Split(err.Error(), "Caused by:")
+	if len(errSlice) != 2 {
+		return err
+	}
+
+	splitted := strings.Split(errSlice[1], "\n")
+	newErr := splitted[0]
+	return errors.New(newErr)
 }

@@ -5,34 +5,40 @@ import (
 	"fmt"
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
+	"go.uber.org/zap"
 
 	"github.com/jinzhu/gorm"
 )
 
 type NmsService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	logger *zap.Logger
 }
 
-func NewNmsService(db *gorm.DB) NmsService {
-	return NmsService{db: db}
+func NewNmsService(db *gorm.DB, logger *zap.Logger) NmsService {
+	return NmsService{db: db, logger: logger}
 }
 
 func (s NmsService) Apply(ctx context.Context, r api.NmsApplyRequests) (*api.NmsApplyResponse, error) {
 	// Start transaction to fall back
 	// if we get an error
+	s.logger.Debug("Starting db-transaction for NMS-apply")
 	tx := s.db.BeginTx(ctx, nil)
 
 	// Iterate over the requested nm-servers
 	// and append them to the response
 	var resp api.NmsApplyResponse
 	for _, nms := range r.Nms {
+		s.logger.Debug("Checking if nms already exists", zap.String("nms", nms.Address))
 		// Check if the requested NMS exists (in that case update it)
 		var newNms api.Nms
 		if err := tx.Preload("Licences").Where("address = ?", nms.Address).First(&newNms).Error; err != nil {
 			// return the error if it isn't a "record not found"-error
 			if !gorm.IsRecordNotFoundError(err) {
+				s.logger.Error("Cannot get nms-server", zap.String("nms", nms.Address), zap.String("exception", err.Error()))
 				return nil, err
 			}
+			s.logger.Debug("NMS already exists - will update", zap.String("nms", nms.Address))
 		}
 
 		// Set data to the new Nms-model
@@ -43,12 +49,14 @@ func (s NmsService) Apply(ctx context.Context, r api.NmsApplyRequests) (*api.Nms
 		newNms.Workers = nms.Workers
 
 		// Create hash-map for the existing licences
+		s.logger.Debug("Creating hash-map for nms-licences", zap.String("nms", nms.Address))
 		hashMap := make(map[string]api.Licence)
 		for _, lic := range newNms.Licences {
 			hashMap[lic.Type] = lic
 		}
 
 		// append the requested licences to the new nms-model
+		s.logger.Debug("Iterating through licences to see which to update or create", zap.String("nms", nms.Address))
 		for _, lic := range nms.Licences {
 			var newLicence api.Licence
 
@@ -56,16 +64,20 @@ func (s NmsService) Apply(ctx context.Context, r api.NmsApplyRequests) (*api.Nms
 			// else create a new licence
 			if existing, found := hashMap[lic.Licence.Type]; found {
 				newLicence = existing
+				s.logger.Debug("Updating licence", zap.String("nms", nms.Address), zap.String("licence", newLicence.Type))
 			} else {
 				newLicence.Type = lic.Licence.Type
+				s.logger.Debug("Adding licence", zap.String("nms", nms.Address), zap.String("licence", newLicence.Type))
 			}
 			newLicence.Amount = lic.Licence.Amount
 			newNms.Licences = append(newNms.Licences, newLicence)
 		}
 
 		// Save the new NMS to the DB
+		s.logger.Debug("Saving NMS-to db", zap.String("nms", nms.Address))
 		if err := tx.Save(&newNms).Error; err != nil {
 			tx.Rollback()
+			s.logger.Error("Cannot save NMS-to db - rolling back transaction", zap.String("nms", nms.Address), zap.String("exception", err.Error()))
 			return nil, fmt.Errorf("failed to apply server %s : %v", newNms.Address, err)
 		}
 
@@ -73,12 +85,24 @@ func (s NmsService) Apply(ctx context.Context, r api.NmsApplyRequests) (*api.Nms
 		resp.Nms = append(resp.Nms, newNms)
 	}
 
-	return &resp, tx.Commit().Error
+	s.logger.Debug("Commiting transaction")
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Commit failed", zap.String("exception", err.Error()))
+		return nil, err
+	}
+	s.logger.Debug("Commit successful")
+	return &resp, nil
 }
 func (s NmsService) List(ctx context.Context, r api.NmsListRequest) (*api.NmsListResponse, error) {
+	s.logger.Debug("Getting NMS-list")
 	var nms []api.Nms
-	err := s.db.Preload("Licences").Find(&nms).Error
-	return &api.NmsListResponse{Nms: nms}, err
+	if err := s.db.Preload("Licences").Find(&nms).Error; err != nil {
+		s.logger.Error("Cannot get NMS-list", zap.String("exception", err.Error()))
+		return nil, err
+	}
+	s.logger.Debug("Got NMS-list", zap.Int("amount", len(nms)))
+	return &api.NmsListResponse{Nms: nms}, nil
 }
 
 func (s NmsService) ListLicences(ctx context.Context, r api.NmsListLicencesRequest) (*api.NmsListLicencesResponse, error) {
