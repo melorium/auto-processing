@@ -18,7 +18,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/avian-digital-forensics/auto-processing/configs"
@@ -142,7 +141,6 @@ func licencesNms(ctx context.Context) error {
 	headers = table.Row{"ID", "Address", "Type", "Licences", "In-Use"}
 	for _, s := range resp.Nms {
 		for _, lic := range s.Licences {
-			log.Println(lic)
 			body = append(body, table.Row{lic.ID, s.Address, lic.Type, lic.Amount, lic.InUse})
 		}
 	}
