@@ -53,6 +53,34 @@ func (s *Stage) Status() string {
 	return "Unknown"
 }
 
+func Name(s *api.Stage) string {
+	if s.Process != nil {
+		return "Process"
+	}
+
+	if s.SearchAndTag != nil {
+		return "SearchAndTag"
+	}
+
+	if s.Ocr != nil {
+		return "OCR"
+	}
+
+	if s.Exclude != nil {
+		return "Exclude"
+	}
+
+	if s.Reload != nil {
+		return "Reload"
+	}
+
+	if s.Populate != nil {
+		return "Populate"
+	}
+
+	return "Unknown"
+}
+
 func (s *Stage) Name() string {
 	if s.Process != nil {
 		return "Process"
@@ -130,4 +158,21 @@ func SetStatusFinished(stage *api.Stage) {
 	} else if stage.Ocr != nil {
 		stage.Ocr.Status = StatusFinished
 	}
+}
+
+func HasFinished(s *api.Stage) bool {
+	if s.Process != nil {
+		return Finished(s.Process.Status)
+	} else if s.SearchAndTag != nil {
+		return Finished(s.SearchAndTag.Status)
+	} else if s.Reload != nil {
+		return Finished(s.Reload.Status)
+	} else if s.Exclude != nil {
+		return Finished(s.Exclude.Status)
+	} else if s.Populate != nil {
+		return Finished(s.Populate.Status)
+	} else if s.Ocr != nil {
+		return Finished(s.Ocr.Status)
+	}
+	return false
 }
