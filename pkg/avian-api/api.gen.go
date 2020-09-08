@@ -222,7 +222,6 @@ func (s *runnerServiceServer) handleList(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *runnerServiceServer) handleStartStage(w http.ResponseWriter, r *http.Request) {
-	log.Println("hit")
 	var request StageRequest
 	if err := otohttp.Decode(r, &request); err != nil {
 		s.server.OnErr(w, r, err)
