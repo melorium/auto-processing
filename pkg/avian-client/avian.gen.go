@@ -1058,6 +1058,8 @@ type RunnerListResponse struct {
 }
 
 type StageRequest struct {
+	Runner string `json:"runner" yaml:"runner"`
+
 	StageID uint `json:"stageID" yaml:"stageID"`
 }
 

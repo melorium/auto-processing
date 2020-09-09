@@ -22,7 +22,7 @@ def send_request(method, id)
   begin
 	uri = "%sRunnerService.%s" % [@url, method]
 	request = Net::HTTP::Post.new(uri)
-	request.body = {stageID: id}.to_json
+	request.body = {runner: '<%= runner.Name %>', stageID: id}.to_json
 	request["Content-Type"] = "application/json"
 
     # Send the request

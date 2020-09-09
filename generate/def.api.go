@@ -349,6 +349,7 @@ type Case struct {
 }
 
 type StageRequest struct {
+	Runner string
 	StageID uint
 }
 

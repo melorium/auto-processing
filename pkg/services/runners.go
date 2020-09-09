@@ -161,7 +161,8 @@ func (s RunnerService) Get(ctx context.Context, r api.RunnerGetRequest) (*api.Ru
 }
 
 func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
-	s.logger.Debug("StartStage request", zap.Int("stage_id", int(r.StageID)))
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("StartStage request")
 	var stage api.Stage
 	if err := s.db.Preload("Process").
 		Preload("SearchAndTag").
@@ -170,26 +171,24 @@ func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api
 		Preload("Populate").
 		Preload("Ocr").
 		First(&stage, r.StageID).Error; err != nil {
-		s.logger.Error("Cannot get the requested stage", zap.Int("stage_id", int(r.StageID)))
+		logger.Error("Cannot get the requested stage", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("did not get requested stage : %v", err)
 	}
 
-	s.logger.Debug("Set stage-status to running", zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("Set stage-status to running", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusRunning(&stage)
 	if err := s.db.Save(&stage).Error; err != nil {
-		s.logger.Error("Cannot set stage-status to running",
-			zap.Int("stage_id", int(r.StageID)),
-			zap.String("exception", err.Error()),
-		)
+		logger.Error("Cannot set stage-status to running", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("failed to update stage to running: %v", err)
 	}
 
-	s.logger.Info("STARTING STAGE", zap.Int("stage_id", int(r.StageID)), zap.String("stage", avian.Name(&stage)))
+	logger.Info("STARTING STAGE", zap.String("stage", avian.Name(&stage)))
 	return &api.StageResponse{Stage: stage}, nil
 }
 
 func (s RunnerService) FailedStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
-	s.logger.Debug("FailedStage request", zap.Int("stage_id", int(r.StageID)))
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("FailedStage request")
 	var stage api.Stage
 	if err := s.db.Preload("Process").
 		Preload("SearchAndTag").
@@ -198,26 +197,24 @@ func (s RunnerService) FailedStage(ctx context.Context, r api.StageRequest) (*ap
 		Preload("Populate").
 		Preload("Ocr").
 		First(&stage, r.StageID).Error; err != nil {
-		s.logger.Error("Cannot get the requested stage", zap.Int("stage_id", int(r.StageID)))
+		logger.Error("Cannot get the requested stage", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("did not get requested stage : %v", err)
 	}
 
-	s.logger.Debug("Set stage-status to failed", zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("Set stage-status to failed", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusFailed(&stage)
 	if err := s.db.Save(&stage).Error; err != nil {
-		s.logger.Error("Cannot set stage-status to failed",
-			zap.Int("stage_id", int(r.StageID)),
-			zap.String("exception", err.Error()),
-		)
+		logger.Error("Cannot set stage-status to failed", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot to update stage to failed: %v", err)
 	}
 
-	s.logger.Info("FAILED STAGE", zap.Int("stage_id", int(r.StageID)), zap.String("stage", avian.Name(&stage)))
+	logger.Info("FAILED STAGE", zap.String("stage", avian.Name(&stage)))
 	return &api.StageResponse{Stage: stage}, nil
 }
 
 func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
-	s.logger.Debug("FinishStage request", zap.Int("stage_id", int(r.StageID)))
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("FinishStage request")
 	var stage api.Stage
 	if err := s.db.Preload("Process").
 		Preload("SearchAndTag").
@@ -226,20 +223,17 @@ func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*ap
 		Preload("Populate").
 		Preload("Ocr").
 		First(&stage, r.StageID).Error; err != nil {
-		s.logger.Error("Cannot get the requested stage", zap.Int("stage_id", int(r.StageID)))
+		logger.Error("Cannot get the requested stage", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("did not get requested stage : %v", err)
 	}
 
-	s.logger.Debug("Set stage-status to finished", zap.Int("stage_id", int(r.StageID)))
+	logger.Debug("Set stage-status to finished", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusFinished(&stage)
 	if err := s.db.Save(&stage).Error; err != nil {
-		s.logger.Error("Cannot set stage-status to finished",
-			zap.Int("stage_id", int(r.StageID)),
-			zap.String("exception", err.Error()),
-		)
+		logger.Error("Cannot set stage-status to finished", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("failed to update stage to running: %v", err)
 	}
 
-	s.logger.Info("FINISHED STAGE", zap.Int("stage_id", int(r.StageID)), zap.String("stage", avian.Name(&stage)))
+	logger.Info("FINISHED STAGE", zap.String("stage", avian.Name(&stage)))
 	return &api.StageResponse{Stage: stage}, nil
 }
