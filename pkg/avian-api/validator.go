@@ -31,17 +31,16 @@ func (r *Runner) Validate() error {
 		return errors.New("must specify amount of workers")
 	}
 
+	if err := r.CaseSettings.Validate(); err != nil {
+		return err
+	}
+
 	for i, stage := range r.Stages {
 		if err := stage.Validate(); err != nil {
 			return err
 		}
 		if stage.Nil() {
 			return fmt.Errorf("Stage: %d - unable to parse what stage it is - check syntax", i+1)
-		}
-		if stage.Process != nil {
-			if err := r.CaseSettings.Validate(); err != nil {
-				return err
-			}
 		}
 	}
 	return nil

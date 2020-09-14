@@ -25,18 +25,6 @@ type Servers struct {
 }
 
 func SetCaseSettings(r avian.RunnerApplyRequest) (avian.RunnerApplyRequest, error) {
-	var setCaseSettings bool
-	for _, stage := range r.Stages {
-		if stage.Process != nil {
-			setCaseSettings = true
-		}
-	}
-
-	if !setCaseSettings {
-		r.CaseSettings = nil
-		return r, nil
-	}
-
 	if r.CaseSettings == nil {
 		return r, errors.New("specify caseSettings and caseLocation")
 	}
@@ -45,21 +33,19 @@ func SetCaseSettings(r avian.RunnerApplyRequest) (avian.RunnerApplyRequest, erro
 		return r, errors.New("must specify caseLocation for caseSettings")
 	}
 
-	var case_description string
-	var case_investigator string
-	if r.CaseSettings.Case != nil {
-		case_description = r.CaseSettings.Case.Description
-		case_investigator = r.CaseSettings.Case.Investigator
+	if r.CaseSettings.Case == nil {
+		r.CaseSettings.Case = &avian.Case{}
 	}
 
-	r.CaseSettings.Case = &avian.Case{
-		Name: r.Name + "-single",
-		Directory: fmt.Sprintf("%s/%s-single",
+	if r.CaseSettings.Case.Name == "" {
+		r.CaseSettings.Case.Name = r.Name + "-single"
+	}
+
+	if r.CaseSettings.Case.Directory == "" {
+		r.CaseSettings.Case.Directory = fmt.Sprintf("%s/%s-single",
 			r.CaseSettings.CaseLocation,
 			r.Name,
-		),
-		Description:  case_description,
-		Investigator: case_investigator,
+		)
 	}
 
 	if r.CaseSettings.CompoundCase == nil || r.CaseSettings.CompoundCase.Directory == "" {
