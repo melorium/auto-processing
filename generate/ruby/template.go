@@ -6,6 +6,8 @@ require 'fileutils'
 require 'net/http'
 require 'uri'
 require 'json'
+require 'thread'
+require 'time'
 
 
 # create http-client to the server
@@ -105,7 +107,6 @@ def tear_down(single_case, compound_case, review_compound)
   end
 end
 
-<%= if (process(runner)) { %>
 begin
   # Create or open the single-case
   puts('Opening single-case: <%= runner.CaseSettings.Case.Name %>')
@@ -116,7 +117,14 @@ begin
     'investigator' => '<%= runner.CaseSettings.Case.Investigator %>',
     'compound' => false,
   })
+rescue => e
+  # Handle the exception
+  STDERR.puts("failed to create/open case: #{e}")
+  exit(false)
+end
 
+<%= if (process(runner)) { %>
+begin
   # Create or open the compound-case
   puts('Opening compound-case: <%= runner.CaseSettings.CompoundCase.Name %>')
   compound_case = open_case({ 
@@ -307,13 +315,34 @@ begin
   ocr_processor.set_ocr_profile('<%= s.Ocr.Profile %>')
   items = single_case.search('<%= s.Ocr.Search %>')
   puts("Found #{items.length} from search: <%= s.Ocr.Search %>")
-  if items.length > 0
-    puts('Starting OCR-process')
-    ocr_processor.process(items)
-    puts('Finished OCR-process')
+  if items.length == 0 
+    puts('No OCR items to process - skipping stage')
   else
-    puts('No OCR-items to process')
+    # variables to use for handling the ocr
+    batch_index = 0
+    target_batch_size = 1000
+    last_progress = Time.now
+    total_batches = (items.size.to_f / target_batch_size.to_f).ceil
+
+    # Log the info for the stages
+    ocr_processor.whenItemEventOccurs do |info|
+      if (Time.now - last_progress) > 0.5
+        last_progress = Time.now
+        puts("OCR Stage: #{info.getStage} - Count: #{info.getStageCount} - Item: #{info.item.type.name} - GUID: #{info.item.guid}")
+			end
+    end
+
+    items.each_slice(target_batch_size) do |slice_items|
+      puts("Processing Batch #{batch_index+1}")
+      ocr_job = ocr_processor.processAsync(slice_items)
+      while !ocr_job.hasFinished
+        puts("OCR Batch #{batch_index+1} - items: #{ocr_job.getCurrentStageExportedItemsCount}/#{slice_items.size}")
+        sleep(0.25)
+      end
+      batch_index += 1
+    end
   end
+
   # Finish the OCR-stage (update api)
   finish(<%= s.ID %>)
 rescue => e
