@@ -159,7 +159,7 @@ func run() error {
 	logger.Debug("Registering our oto http-services")
 	api.RegisterServerService(server, services.NewServerService(db, shell, logger))
 	api.RegisterNmsService(server, services.NewNmsService(db, logger))
-	api.RegisterRunnerService(server, services.NewRunnerService(db, shell, logger))
+	api.RegisterRunnerService(server, services.NewRunnerService(db, shell, logger, logPath))
 
 	// Handle our oto-server @ /oto
 	logger.Debug("Handle oto @ /oto/")
