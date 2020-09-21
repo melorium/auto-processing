@@ -211,6 +211,18 @@ type RunnerService interface {
 
 	// FinishStage sets a stage to Finished
 	FinishStage(StageRequest) StageResponse
+
+	// LogItem logs an item
+	LogItem(LogItemRequest) LogResponse
+
+	// LogDebug logs a debug-message
+	LogDebug(LogRequest) LogResponse
+
+	// LogInfo logs an info-message
+	LogInfo(LogRequest) LogResponse
+
+	// LogError logs an error-message
+	LogError(LogRequest) LogResponse
 }
 
 // Runner holds the information for a specific runner
@@ -248,6 +260,9 @@ type Runner struct {
 
 	// Stages for the runner
 	Stages []*Stage
+
+	// Switches to use for nuix-console
+	Switches []*NuixSwitch
 }
 
 // RunnerApplyRequest is the input-object for
@@ -277,6 +292,9 @@ type RunnerApplyRequest struct {
 
 	// Stages for the runner
 	Stages []*Stage
+
+	// Switches to use for nuix-console
+	Switches []string
 }
 
 // RunnerApplyResponse is the output-object for
@@ -306,6 +324,35 @@ type RunnerGetRequest struct {
 type RunnerGetResponse struct {
 	Runner Runner
 }
+
+// NuixSwitch is a command argument for
+// nuix-console
+type NuixSwitch struct {
+	datastore.Base
+	RunnerID uint
+	Value    string
+}
+
+type LogItemRequest struct {
+	Runner       string
+	Stage        string
+	StageID      int
+	Message      string
+	Count        int
+	MimeType     string
+	GUID         string
+	ProcessStage string
+}
+
+type LogRequest struct {
+	Runner    string
+	Stage     string
+	StageID   int
+	Message   string
+	Exception string
+}
+
+type LogResponse struct{}
 
 // CaseSettings holds information about the cases
 // if Processing-stage is used for a Runner
@@ -349,7 +396,7 @@ type Case struct {
 }
 
 type StageRequest struct {
-	Runner string
+	Runner  string
 	StageID uint
 }
 
