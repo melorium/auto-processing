@@ -506,6 +506,226 @@ func (s *RunnerService) List(ctx context.Context, r RunnerListRequest) (*RunnerL
 	return &response.RunnerListResponse, nil
 }
 
+// LogDebug logs a debug-message
+func (s *RunnerService) LogDebug(ctx context.Context, r LogRequest) (*LogResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogDebug: marshal LogRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogDebug: generate signature LogRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.LogDebug"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogDebug: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogDebug")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		LogResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.LogDebug: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogDebug: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.LogDebug: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.LogResponse, nil
+}
+
+// LogError logs an error-message
+func (s *RunnerService) LogError(ctx context.Context, r LogRequest) (*LogResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogError: marshal LogRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogError: generate signature LogRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.LogError"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogError: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogError")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		LogResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.LogError: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogError: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.LogError: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.LogResponse, nil
+}
+
+// LogInfo logs an info-message
+func (s *RunnerService) LogInfo(ctx context.Context, r LogRequest) (*LogResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogInfo: marshal LogRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogInfo: generate signature LogRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.LogInfo"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogInfo: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogInfo")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		LogResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.LogInfo: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogInfo: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.LogInfo: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.LogResponse, nil
+}
+
+// LogItem logs an item
+func (s *RunnerService) LogItem(ctx context.Context, r LogItemRequest) (*LogResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogItem: marshal LogItemRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogItem: generate signature LogItemRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.LogItem"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogItem: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogItem")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		LogResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.LogItem: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.LogItem: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.LogItem: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.LogResponse, nil
+}
+
 // StartStage sets a stage to Active
 func (s *RunnerService) StartStage(ctx context.Context, r StageRequest) (*StageResponse, error) {
 	requestBodyBytes, err := json.Marshal(r)
@@ -811,6 +1031,39 @@ type Licences struct {
 	Licence LicenceApplyRequest `json:"licence" yaml:"licence"`
 }
 
+type LogItemRequest struct {
+	Runner string `json:"runner" yaml:"runner"`
+
+	Stage string `json:"stage" yaml:"stage"`
+
+	StageID int `json:"stageID" yaml:"stageID"`
+
+	Message string `json:"message" yaml:"message"`
+
+	Count int `json:"count" yaml:"count"`
+
+	MimeType string `json:"mimeType" yaml:"mimeType"`
+
+	GUID string `json:"gUID" yaml:"gUID"`
+
+	ProcessStage string `json:"processStage" yaml:"processStage"`
+}
+
+type LogRequest struct {
+	Runner string `json:"runner" yaml:"runner"`
+
+	Stage string `json:"stage" yaml:"stage"`
+
+	StageID int `json:"stageID" yaml:"stageID"`
+
+	Message string `json:"message" yaml:"message"`
+
+	Exception string `json:"exception" yaml:"exception"`
+}
+
+type LogResponse struct {
+}
+
 // Nms is the main struct for the Nuix Management Servers
 type Nms struct {
 	datastore.Base
@@ -889,6 +1142,15 @@ type NmsListRequest struct {
 // NmsListResponse is the output-object for List in the NMS-service
 type NmsListResponse struct {
 	Nms []Nms `json:"nms" yaml:"nms"`
+}
+
+// NuixSwitch is a command argument for nuix-console
+type NuixSwitch struct {
+	datastore.Base
+
+	RunnerID uint `json:"runnerID" yaml:"runnerID"`
+
+	Value string `json:"value" yaml:"value"`
 }
 
 // Ocr performs OCR based on a search in a Nuix-case
@@ -1000,6 +1262,9 @@ type Runner struct {
 
 	// Stages for the runner
 	Stages []*Stage `json:"stages" yaml:"stages"`
+
+	// Switches to use for nuix-console
+	Switches []*NuixSwitch `json:"switches" yaml:"switches"`
 }
 
 // RunnerApplyRequest is the input-object for applying a runner-configuration to
@@ -1030,6 +1295,9 @@ type RunnerApplyRequest struct {
 
 	// Stages for the runner
 	Stages []*Stage `json:"stages" yaml:"stages"`
+
+	// Switches to use for nuix-console
+	Switches []string `json:"switches" yaml:"switches"`
 }
 
 // RunnerApplyResponse is the output-object for applying a runner-configuration to

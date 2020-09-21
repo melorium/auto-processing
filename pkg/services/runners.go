@@ -3,24 +3,28 @@ package services
 import (
 	"context"
 	"fmt"
+	"os"
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	avian "github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
 	"github.com/avian-digital-forensics/auto-processing/pkg/powershell"
 	ps "github.com/simonjanss/go-powershell"
-	"go.uber.org/zap"
 
 	"github.com/jinzhu/gorm"
+	"github.com/natefinch/lumberjack"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type RunnerService struct {
-	db     *gorm.DB
-	shell  ps.Shell
-	logger *zap.Logger
+	db      *gorm.DB
+	shell   ps.Shell
+	logger  *zap.Logger
+	logPath string
 }
 
-func NewRunnerService(db *gorm.DB, shell ps.Shell, logger *zap.Logger) RunnerService {
-	return RunnerService{db: db, shell: shell, logger: logger}
+func NewRunnerService(db *gorm.DB, shell ps.Shell, logger *zap.Logger, logPath string) RunnerService {
+	return RunnerService{db: db, shell: shell, logger: logger, logPath: logPath}
 }
 
 // Apply the runner to backend
@@ -38,6 +42,13 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 
 	logger.Debug("Creating runner")
 	// Create the requested runner
+
+	// add the switches
+	var switches []*api.NuixSwitch
+	for _, nuixSwitch := range r.Switches {
+		switches = append(switches, &api.NuixSwitch{Value: nuixSwitch})
+	}
+
 	runner := api.Runner{
 		Name:         r.Name,
 		Hostname:     r.Hostname,
@@ -47,6 +58,7 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 		Workers:      r.Workers,
 		CaseSettings: r.CaseSettings,
 		Stages:       r.Stages,
+		Switches:     switches,
 	}
 
 	// Validate the runner
@@ -236,4 +248,107 @@ func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*ap
 
 	logger.Info("FINISHED STAGE", zap.String("stage", avian.Name(&stage)))
 	return &api.StageResponse{Stage: stage}, nil
+}
+
+// LogItem logs an item that has been processed
+func (s RunnerService) LogItem(ctx context.Context, r api.LogItemRequest) (*api.LogResponse, error) {
+	logName := fmt.Sprintf("%s%s-item.log", s.logPath, r.Runner)
+	logger, err := s.getLogger(logName)
+	if err != nil {
+		return nil, err
+	}
+
+	logger = logger.With(
+		zap.String("runner", r.Runner),
+		zap.String("stage", r.Stage),
+		zap.Int("stage_id", r.StageID),
+		zap.Int("count", r.Count),
+	)
+
+	if len(r.ProcessStage) > 0 {
+		logger = logger.With(zap.String("process_stage", r.ProcessStage))
+	}
+	if len(r.MimeType) > 0 {
+		logger = logger.With(zap.String("mime_type", r.MimeType))
+	}
+	if len(r.GUID) > 0 {
+		logger = logger.With(zap.String("guid", r.GUID))
+	}
+
+	logger.Debug(r.Message)
+	return &api.LogResponse{}, nil
+}
+
+func (s RunnerService) LogDebug(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
+	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logger, err := s.getLogger(logName)
+	if err != nil {
+		return nil, err
+	}
+
+	logger = logger.With(zap.String("runner", r.Runner))
+	if len(r.Stage) > 0 {
+		logger = logger.With(zap.Int("stage_id", r.StageID), zap.String("stage", r.Stage))
+	}
+
+	logger.Debug(r.Message)
+	return &api.LogResponse{}, nil
+}
+
+func (s RunnerService) LogInfo(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
+	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logger, err := s.getLogger(logName)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.With(zap.String("runner", r.Runner))
+	if len(r.Stage) > 0 {
+		logger = logger.With(zap.Int("stage_id", r.StageID), zap.String("stage", r.Stage))
+	}
+
+	logger.Info(r.Message)
+	return &api.LogResponse{}, nil
+}
+
+func (s RunnerService) LogError(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
+	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logger, err := s.getLogger(logName)
+	if err != nil {
+		return nil, err
+	}
+
+	logger = logger.With(zap.String("runner", r.Runner))
+	if len(r.Stage) > 0 {
+		logger = logger.With(zap.Int("stage_id", r.StageID), zap.String("stage", r.Stage))
+	}
+	if len(r.Exception) > 0 {
+		logger = logger.With(zap.String("exception", r.Exception))
+	}
+
+	logger.Error(r.Message)
+	return &api.LogResponse{}, nil
+}
+
+func (s RunnerService) getLogger(logName string) (*zap.Logger, error) {
+	log, err := os.OpenFile(logName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, fmt.Errorf("error opening log-file %s: %v", logName, err)
+	}
+
+	lumberjackLogger := &lumberjack.Logger{
+		Filename:   log.Name(),
+		MaxSize:    0, // megabytes
+		MaxBackups: 3,
+		MaxAge:     1, //days
+	}
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(lumberjackLogger),
+		zap.DebugLevel,
+	)
+
+	logger := zap.New(core)
+	return logger, nil
 }

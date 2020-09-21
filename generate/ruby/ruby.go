@@ -36,6 +36,15 @@ func Generate(remoteAddress string, runner api.Runner) (string, error) {
 		return 0
 	})
 
+	ctx.Set("getProcessingFailed", func(r api.Runner) bool {
+		for _, s := range r.Stages {
+			if s.Process != nil {
+				return (s.Process.Status == avian.StatusFailed)
+			}
+		}
+		return false
+	})
+
 	ctx.Set("getProcessingProfilePath", func(r api.Runner) string {
 		for _, s := range r.Stages {
 			if s.Process != nil {
@@ -60,6 +69,7 @@ func Generate(remoteAddress string, runner api.Runner) (string, error) {
 	ctx.Set("ocr", func(s *api.Stage) bool { return s.Ocr != nil && !avian.Finished(s.Ocr.Status) })
 	ctx.Set("populate", func(s *api.Stage) bool { return s.Populate != nil && !avian.Finished(s.Populate.Status) })
 	ctx.Set("reload", func(s *api.Stage) bool { return s.Reload != nil && !avian.Finished(s.Reload.Status) })
+	ctx.Set("stageName", func(s *api.Stage) string { return avian.Name(s) })
 
 	ctx.Set("remoteAddress", remoteAddress)
 	ctx.Set("runner", runner)

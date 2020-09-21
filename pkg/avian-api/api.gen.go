@@ -32,6 +32,14 @@ type RunnerService interface {
 	Get(context.Context, RunnerGetRequest) (*RunnerGetResponse, error)
 	// List returns the runners from the backend
 	List(context.Context, RunnerListRequest) (*RunnerListResponse, error)
+	// LogDebug logs a debug-message
+	LogDebug(context.Context, LogRequest) (*LogResponse, error)
+	// LogError logs an error-message
+	LogError(context.Context, LogRequest) (*LogResponse, error)
+	// LogInfo logs an info-message
+	LogInfo(context.Context, LogRequest) (*LogResponse, error)
+	// LogItem logs an item
+	LogItem(context.Context, LogItemRequest) (*LogResponse, error)
 	// StartStage sets a stage to Active
 	StartStage(context.Context, StageRequest) (*StageResponse, error)
 }
@@ -128,6 +136,10 @@ func RegisterRunnerService(server *otohttp.Server, runnerService RunnerService) 
 	server.Register("RunnerService", "FinishStage", handler.handleFinishStage)
 	server.Register("RunnerService", "Get", handler.handleGet)
 	server.Register("RunnerService", "List", handler.handleList)
+	server.Register("RunnerService", "LogDebug", handler.handleLogDebug)
+	server.Register("RunnerService", "LogError", handler.handleLogError)
+	server.Register("RunnerService", "LogInfo", handler.handleLogInfo)
+	server.Register("RunnerService", "LogItem", handler.handleLogItem)
 	server.Register("RunnerService", "StartStage", handler.handleStartStage)
 }
 
@@ -210,6 +222,78 @@ func (s *runnerServiceServer) handleList(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	response, err := s.runnerService.List(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleLogDebug(w http.ResponseWriter, r *http.Request) {
+	var request LogRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.LogDebug(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleLogError(w http.ResponseWriter, r *http.Request) {
+	var request LogRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.LogError(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleLogInfo(w http.ResponseWriter, r *http.Request) {
+	var request LogRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.LogInfo(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleLogItem(w http.ResponseWriter, r *http.Request) {
+	var request LogItemRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.LogItem(r.Context(), request)
 	if err != nil {
 		log.Println("TODO: oto service error:", err)
 		s.server.OnErr(w, r, err)
@@ -396,6 +480,30 @@ type Licences struct {
 	Licence LicenceApplyRequest `json:"licence" yaml:"licence"`
 }
 
+type LogItemRequest struct {
+	Runner       string `json:"runner" yaml:"runner"`
+	Stage        string `json:"stage" yaml:"stage"`
+	StageID      int    `json:"stageID" yaml:"stageID"`
+	Message      string `json:"message" yaml:"message"`
+	Count        int    `json:"count" yaml:"count"`
+	MimeType     string `json:"mimeType" yaml:"mimeType"`
+	GUID         string `json:"gUID" yaml:"gUID"`
+	ProcessStage string `json:"processStage" yaml:"processStage"`
+}
+
+type LogRequest struct {
+	Runner    string `json:"runner" yaml:"runner"`
+	Stage     string `json:"stage" yaml:"stage"`
+	StageID   int    `json:"stageID" yaml:"stageID"`
+	Message   string `json:"message" yaml:"message"`
+	Exception string `json:"exception" yaml:"exception"`
+}
+
+type LogResponse struct {
+	// Error is string explaining what went wrong. Empty if everything was fine.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
 // Nms is the main struct for the Nuix Management Servers
 type Nms struct {
 	datastore.Base
@@ -466,6 +574,13 @@ type NmsListResponse struct {
 	Nms []Nms `json:"nms" yaml:"nms"`
 	// Error is string explaining what went wrong. Empty if everything was fine.
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+// NuixSwitch is a command argument for nuix-console
+type NuixSwitch struct {
+	datastore.Base
+	RunnerID uint   `json:"runnerID" yaml:"runnerID"`
+	Value    string `json:"value" yaml:"value"`
 }
 
 // Ocr performs OCR based on a search in a Nuix-case
@@ -547,6 +662,8 @@ type Runner struct {
 	CaseSettings   *CaseSettings `json:"caseSettings" yaml:"caseSettings"`
 	// Stages for the runner
 	Stages []*Stage `json:"stages" yaml:"stages"`
+	// Switches to use for nuix-console
+	Switches []*NuixSwitch `json:"switches" yaml:"switches"`
 }
 
 // RunnerApplyRequest is the input-object for applying a runner-configuration to
@@ -569,6 +686,8 @@ type RunnerApplyRequest struct {
 	CaseSettings *CaseSettings `json:"caseSettings" yaml:"caseSettings"`
 	// Stages for the runner
 	Stages []*Stage `json:"stages" yaml:"stages"`
+	// Switches to use for nuix-console
+	Switches []string `json:"switches" yaml:"switches"`
 }
 
 // RunnerApplyResponse is the output-object for applying a runner-configuration to
