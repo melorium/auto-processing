@@ -210,17 +210,24 @@ func (r *run) start() error {
 		zap.String("licence", r.runner.Licence),
 		zap.Int("workers", int(r.runner.Workers)),
 	)
-	return client.RunWithCmd(
+
+	// format switches for powershell
+	var switches []string
+	for _, sw := range r.runner.Switches {
+		switches = append(switches, fmt.Sprintf("'%s'", sw.Value))
+	}
+
+	return client.Run(
 		nuixPath,
 		"nuix_console.exe",
 		"-Xmx"+r.runner.Xmx,
-		"-Dnuix.registry.servers="+r.nms.Address,
+		fmt.Sprintf("'-Dnuix.registry.servers=%s'", r.nms.Address),
 		"-licencesourcetype", "server",
 		"-licencesourcelocation", fmt.Sprintf("%s:%d", r.nms.Address, r.nms.Port),
 		"-licencetype", r.runner.Licence,
 		"-licenceworkers", fmt.Sprintf("%d", r.runner.Workers),
 		"-signout",
-		"-release",
+		strings.Join(switches, " "),
 		scriptName,
 	)
 }
@@ -341,7 +348,8 @@ func (r *run) close() error {
 
 func getRunners(db *gorm.DB) ([]*api.Runner, error) {
 	var runners []*api.Runner
-	err := db.Preload("Stages.Process.EvidenceStore").
+	err := db.
+		Preload("Stages.Process.EvidenceStore").
 		Preload("Stages.SearchAndTag.Files").
 		Preload("Stages.Exclude").
 		Preload("Stages.Ocr").
@@ -350,6 +358,7 @@ func getRunners(db *gorm.DB) ([]*api.Runner, error) {
 		Preload("CaseSettings.Case").
 		Preload("CaseSettings.CompoundCase").
 		Preload("CaseSettings.ReviewCompound").
+		Preload("Switches").
 		Where("active = ? and finished = ?", false, false).
 		Find(&runners).Error
 	return runners, err
