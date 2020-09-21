@@ -14,6 +14,7 @@ func Migrate(db *gorm.DB) error {
 		&api.Licence{},
 		&api.Server{},
 		&api.Runner{},
+		&api.NuixSwitch{},
 		&api.CaseSettings{},
 		&api.Case{},
 		&api.Evidence{},
