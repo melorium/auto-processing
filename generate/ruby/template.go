@@ -95,7 +95,7 @@ end
 
 def open_case(settings)
   begin
-    unless java.io.File.new("#{@case_directory}\\case.fbi2").exists
+    unless java.io.File.new("#{settings['directory']}\\case.fbi2").exists
       log_info("", 0, "Creating case in directory: #{settings['directory']}")
       caze = @case_factory.create(settings['directory'], settings)
     else
