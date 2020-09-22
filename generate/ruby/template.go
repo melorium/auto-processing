@@ -318,7 +318,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
-  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
+  STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (exclude(s)) { %>
@@ -353,7 +353,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
-  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
+  STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (ocr(s)) { %>
@@ -420,7 +420,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
-  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
+  STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (populate(s)) { %>
@@ -497,7 +497,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
-  STDERR.puts("Failed to run <%= stageName(s) %> stage id <%= s.ID %> : #{e}")
+  STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   exit(false)
 end
 <% } else if (reload(s)) { %>
@@ -562,6 +562,6 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
-  STDERR.puts("Failed to run stage id <%= s.ID %> : #{e}")
+  STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   exit(false)
 end<% } %><% } %><% } %><% } %>`
