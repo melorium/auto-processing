@@ -200,6 +200,17 @@ func (c *Client) Echo(arg string) (string, error) {
 	return stdout, nil
 }
 
+func (c *Client) RemoveItem(path string) error {
+	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("Remove-Item -Path %s -Force", path))
+	if stderr != "" {
+		return fmt.Errorf("stderr: %s", stderr)
+	}
+	if strings.Contains(stdout, "ERROR") {
+		return fmt.Errorf("stdout: %s", stdout)
+	}
+	return err
+}
+
 func (c *Client) RunWithCmd(path string, args ...string) error {
 	// Set the location to path
 	if err := c.setLocation(path); err != nil {
