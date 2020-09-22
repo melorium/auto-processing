@@ -164,10 +164,10 @@ func stagesRunner(ctx context.Context, runner string) error {
 
 	var headers table.Row
 	var body []table.Row
-	headers = table.Row{"Runner", "Stage", "Status"}
+	headers = table.Row{"ID", "Runner", "Stage", "Status"}
 
 	for _, s := range resp.Runner.Stages {
-		body = append(body, table.Row{resp.Runner.Name, s.Name(), s.Status()})
+		body = append(body, table.Row{s.ID, resp.Runner.Name, s.Name(), s.Status()})
 	}
 
 	fmt.Println(pretty.Format(headers, body))
