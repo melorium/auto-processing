@@ -1,6 +1,8 @@
 package ruby
 
 import (
+	"html/template"
+
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	"github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
 	"github.com/gobuffalo/plush"
@@ -70,8 +72,9 @@ func Generate(remoteAddress string, runner api.Runner) (string, error) {
 	ctx.Set("populate", func(s *api.Stage) bool { return s.Populate != nil && !avian.Finished(s.Populate.Status) })
 	ctx.Set("reload", func(s *api.Stage) bool { return s.Reload != nil && !avian.Finished(s.Reload.Status) })
 	ctx.Set("stageName", func(s *api.Stage) string { return avian.Name(s) })
+	ctx.Set("formatQuotes", func(s string) template.HTML { return template.HTML(s) })
 
 	ctx.Set("remoteAddress", remoteAddress)
 	ctx.Set("runner", runner)
-	return plush.Render(template, ctx)
+	return plush.Render(rubyTemplate, ctx)
 }
