@@ -1,0 +1,82 @@
+##########################
+# Filebeat version 7.9.x #
+##########################
+
+nuix.logdir: C:\Users\*\AppData\Local\Nuix
+automation.logdir: C:\log
+
+filebeat.inputs:
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+  tags: ["NUIX-MAIN-LOG"]
+
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\*\*\nuix.log
+  tags: ["NUIX-WORKER-LOG"]
+
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\*\*\ocr.log
+  tags: ["OCR-LOG"]
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\*\*\abby*.log
+  tags: ["ABBY-WORKER-LOG"]
+
+- type: log
+  enabled: true
+  paths:
+    - ${automation.logdir}\service.log
+    - ${automation.logdir}\*-runner.log
+  tags: ["AUTOMATION"]
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+setup.template.settings:
+  index.number_of_shards: 1
+
+setup.kibana:
+  host: "172.16.85.101:5601"
+
+output.elasticsearch:
+  hosts: ["172.16.85.101:9200", "172.16.85.107:9200"]
+  loadbalance: true
+
+# If you want to use logstash as output
+# output.logstash:
+# The Logstash hosts
+# hosts: ["172.16.85.248:5044"]
+
+processors:
+- decode_json_fields:
+    when:
+     contains:
+       tags: "AUTOMATION"
+    fields: ['message']
+    process_array: true
+    max_depth: 20
+    target: "automation"
+    overwrite_keys: true
+- timestamp:
+    when:
+     contains:
+       tags: "AUTOMATION"
+    field: automation.ts
+    layouts:
+     - 'UNIX'
+    target_field: automation.timestamp
