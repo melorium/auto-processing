@@ -259,16 +259,6 @@ rescue => e
   STDERR.puts("Processing failed: #{e}")
   exit(false)
 end
-<% } else { %>
-# Open single_case
-log_info('', 0, 'Opening single-case: <%= runner.CaseSettings.Case.Name %>')
-single_case = open_case({ 
-  'name' => '<%= runner.CaseSettings.Case.Name %>',
-  'directory' => '<%= runner.CaseSettings.Case.Directory %>',
-  'description' => '<%= runner.CaseSettings.Case.Description %>',
-  'investigator' => '<%= runner.CaseSettings.Case.Investigator %>',
-  'compound' => false,
-})
 <% } %><%= for (i, s) in getStages(runner) { %><%= if (searchAndTag(s)) { %>
 # Start stage: <%= i %>
 begin
