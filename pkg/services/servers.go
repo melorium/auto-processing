@@ -27,7 +27,6 @@ func (s ServerService) Apply(ctx context.Context, r api.ServerApplyRequest) (*ap
 		zap.String("server", r.Hostname),
 		zap.String("os", r.OperatingSystem),
 		zap.String("nuix_path", r.NuixPath),
-		zap.Bool("skip_install", r.SkipInstall),
 		zap.String("service_account", r.Username),
 	)
 
