@@ -96,6 +96,7 @@ type run struct {
 	runner *api.Runner
 	server *api.Server
 	nms    *api.Nms
+	client *powershell.Client
 }
 
 func (q *Queue) newRun(runner *api.Runner, server *api.Server, nms *api.Nms) *run {
@@ -169,62 +170,24 @@ func (r *run) start() error {
 	if err != nil {
 		return fmt.Errorf("failed to create remote-client for powershell: %v", err)
 	}
-	defer client.Close()
+	r.client = client
 	logger.Debug("Powershell-client has been created for runner")
 
 	// Check for case-locks
-	var caseDirs []string
-	caseDirs = append(caseDirs, r.runner.CaseSettings.Case.Directory)
-	if r.runner.CaseSettings.CompoundCase != nil {
-		caseDirs = append(caseDirs, r.runner.CaseSettings.CompoundCase.Directory)
-	}
-	if r.runner.CaseSettings.ReviewCompound != nil {
-		caseDirs = append(caseDirs, r.runner.CaseSettings.ReviewCompound.Directory)
-	}
-
-	logger.Debug("Checking for case.locks in case-directories")
-	for _, dir := range caseDirs {
-		// if err == nil means the lock exists
-		var err error
-		caseLock := dir + "/case.lock"
-		if powershell.IsUnc(dir) {
-			err = client.CheckPathFromHost(caseLock)
-		} else {
-			err = client.CheckPath(caseLock)
-		}
-		if err == nil {
-			logger.Debug("Found case.lock in case-directory")
-			logger.Info("Deleting case.lock in case-directory", zap.String("directory", dir))
-			if err := client.RemoveItem(caseLock); err != nil {
-				return fmt.Errorf("Failed to remove case.lock from %s : %v", dir, err)
-			}
-			logger.Debug("Deleted case.lock in case-directory", zap.String("directory", dir))
-		}
-
-		caseLockProperties := dir + "/case.lock.properties"
-		if powershell.IsUnc(caseLockProperties) {
-			err = client.CheckPathFromHost(caseLockProperties)
-		} else {
-			err = client.CheckPath(caseLockProperties)
-		}
-		if err == nil {
-			logger.Debug("Found case.lock.properties in case-directory")
-			logger.Info("Deleting case.lock.properties in case-directory", zap.String("directory", dir))
-			if err := client.RemoveItem(caseLockProperties); err != nil {
-				return fmt.Errorf("Failed to remove case.lock.properties from %s : %v", dir, err)
-			}
-			logger.Debug("Deleted case.lock.properties in case-directory", zap.String("directory", dir))
-		}
-
+	if err := removeCaseLocks(client, logger, r.runner.CaseSettings); err != nil {
+		client.Close()
+		return err
 	}
 
 	// Set nuix username as an env-variable
 	if err := client.SetEnv("NUIX_USERNAME", r.nms.Username); err != nil {
+		client.Close()
 		return fmt.Errorf("unable to set NUIX_USERNAME env-variable: %v", err)
 	}
 
 	// Set nuix password as an env-variable
 	if err := client.SetEnv("NUIX_PASSWORD", r.nms.Password); err != nil {
+		client.Close()
 		return fmt.Errorf("unable to set NUIX_PASSWORD env-variable: %v", err)
 	}
 
@@ -237,6 +200,7 @@ func (r *run) start() error {
 	)
 
 	if err := client.CreateFile(r.server.NuixPath, scriptName, []byte(script)); err != nil {
+		client.Close()
 		return fmt.Errorf("Failed to create script-file: %v", err)
 	}
 	defer client.RemoveFile(r.server.NuixPath, scriptName)
@@ -282,6 +246,11 @@ func (r *run) handle(err error) {
 
 	db := r.queue.db
 	defer r.close()
+
+	// Check for case-locks
+	if err := removeCaseLocks(r.client, logger, r.runner.CaseSettings); err != nil {
+		logger.Error("Cannot remove case-locks", zap.String("exception", err.Error()))
+	}
 
 	logger.Debug("Runner has stopped")
 
@@ -378,6 +347,8 @@ func (r *run) close() error {
 	}
 	r.queue.logger.Debug("Closing runner", zap.String("runner", r.runner.Name))
 
+	r.client.Close()
+	r.client = nil
 	r.queue = nil
 	r.runner = nil
 	r.server = nil
@@ -456,4 +427,52 @@ func nuixError(err error) error {
 	splitted := strings.Split(errSlice[1], "\n")
 	newErr := splitted[0]
 	return errors.New(newErr)
+}
+
+func removeCaseLocks(client *powershell.Client, logger *zap.Logger, caseSettings *api.CaseSettings) error {
+	// Check for case-locks
+	var caseDirs []string
+	caseDirs = append(caseDirs, caseSettings.Case.Directory)
+	if caseSettings.CompoundCase != nil {
+		caseDirs = append(caseDirs, caseSettings.CompoundCase.Directory)
+	}
+	if caseSettings.ReviewCompound != nil {
+		caseDirs = append(caseDirs, caseSettings.ReviewCompound.Directory)
+	}
+
+	logger.Debug("Checking for case.locks in case-directories")
+	for _, dir := range caseDirs {
+		// if err == nil means the lock exists
+		var err error
+		caseLock := dir + "/case.lock"
+		if powershell.IsUnc(dir) {
+			err = client.CheckPathFromHost(caseLock)
+		} else {
+			err = client.CheckPath(caseLock)
+		}
+		if err == nil {
+			logger.Debug("Found case.lock in case-directory")
+			logger.Info("Deleting case.lock in case-directory", zap.String("directory", dir))
+			if err := client.RemoveItem(caseLock); err != nil {
+				return fmt.Errorf("Failed to remove case.lock from %s : %v", dir, err)
+			}
+			logger.Debug("Deleted case.lock in case-directory", zap.String("directory", dir))
+		}
+
+		caseLockProperties := dir + "/case.lock.properties"
+		if powershell.IsUnc(caseLockProperties) {
+			err = client.CheckPathFromHost(caseLockProperties)
+		} else {
+			err = client.CheckPath(caseLockProperties)
+		}
+		if err == nil {
+			logger.Debug("Found case.lock.properties in case-directory")
+			logger.Info("Deleting case.lock.properties in case-directory", zap.String("directory", dir))
+			if err := client.RemoveItem(caseLockProperties); err != nil {
+				return fmt.Errorf("Failed to remove case.lock.properties from %s : %v", dir, err)
+			}
+			logger.Debug("Deleted case.lock.properties in case-directory", zap.String("directory", dir))
+		}
+	}
+	return nil
 }
