@@ -1420,8 +1420,6 @@ type ServerApplyRequest struct {
 	Password string `json:"password" yaml:"password"`
 
 	NuixPath string `json:"nuixPath" yaml:"nuixPath"`
-
-	SkipInstall bool `json:"skipInstall" yaml:"skipInstall"`
 }
 
 // ServerApplyResponse is the output-object for Apply in the server-service

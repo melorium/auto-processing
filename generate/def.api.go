@@ -45,7 +45,6 @@ type ServerApplyRequest struct {
 	Username        string
 	Password        string
 	NuixPath        string
-	SkipInstall     bool
 }
 
 // ServerApplyResponse is the output-object
