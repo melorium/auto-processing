@@ -185,8 +185,14 @@ func (r *run) start() error {
 	logger.Debug("Checking for case.locks in case-directories")
 	for _, dir := range caseDirs {
 		// if err == nil means the lock exists
-		caseLock := powershell.FormatPath(dir + "/case.lock")
-		if err := client.CheckPath(caseLock); err == nil {
+		var err error
+		caseLock := dir + "/case.lock"
+		if powershell.IsUnc(dir) {
+			err = client.CheckPathFromHost(caseLock)
+		} else {
+			err = client.CheckPath(caseLock)
+		}
+		if err == nil {
 			logger.Debug("Found case.lock in case-directory")
 			logger.Info("Deleting case.lock in case-directory", zap.String("directory", dir))
 			if err := client.RemoveItem(caseLock); err != nil {
@@ -195,8 +201,13 @@ func (r *run) start() error {
 			logger.Debug("Deleted case.lock in case-directory", zap.String("directory", dir))
 		}
 
-		caseLockProperties := powershell.FormatPath(dir + "/case.lock.properties")
-		if err := client.CheckPath(caseLockProperties); err == nil {
+		caseLockProperties := dir + "/case.lock.properties"
+		if powershell.IsUnc(caseLockProperties) {
+			err = client.CheckPathFromHost(caseLockProperties)
+		} else {
+			err = client.CheckPath(caseLockProperties)
+		}
+		if err == nil {
 			logger.Debug("Found case.lock.properties in case-directory")
 			logger.Info("Deleting case.lock.properties in case-directory", zap.String("directory", dir))
 			if err := client.RemoveItem(caseLockProperties); err != nil {
@@ -217,7 +228,6 @@ func (r *run) start() error {
 		return fmt.Errorf("unable to set NUIX_PASSWORD env-variable: %v", err)
 	}
 
-	nuixPath := powershell.FormatPath(r.server.NuixPath)
 	scriptName := r.runner.Name + ".gen.rb"
 
 	r.queue.logger.Info("Creating runner-script to server",
@@ -226,10 +236,10 @@ func (r *run) start() error {
 		zap.String("script", scriptName),
 	)
 
-	if err := client.CreateFile(nuixPath, scriptName, []byte(script)); err != nil {
+	if err := client.CreateFile(r.server.NuixPath, scriptName, []byte(script)); err != nil {
 		return fmt.Errorf("Failed to create script-file: %v", err)
 	}
-	defer client.RemoveFile(nuixPath, scriptName)
+	defer client.RemoveFile(r.server.NuixPath, scriptName)
 
 	r.queue.logger.Info("STARTING RUNNER",
 		zap.String("runner", r.runner.Name),
@@ -247,7 +257,7 @@ func (r *run) start() error {
 	}
 
 	return client.Run(
-		nuixPath,
+		r.server.NuixPath,
 		"nuix_console.exe",
 		"-Xmx"+r.runner.Xmx,
 		fmt.Sprintf("'-Dnuix.registry.servers=%s'", r.nms.Address),

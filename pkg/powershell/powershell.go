@@ -58,9 +58,21 @@ func NewClient(shell ps.Shell, opts Options) (*Client, error) {
 	}, nil
 }
 
+// IsUnc checks if the path is UNC
+func IsUnc(path string) bool { return strings.HasPrefix(path, "\\\\") }
+
 // CheckPath checks if the specified path exists
 func (c *Client) CheckPath(path string) error {
-	stdout, _, err := c.Session.Execute(fmt.Sprintf("Test-Path -path %s", path))
+	stdout, _, err := c.Session.Execute(fmt.Sprintf("Test-Path -Path '%s'", path))
+	if strings.HasPrefix(stdout, "False") {
+		return fmt.Errorf("no such path: %s", path)
+	}
+	return err
+}
+
+// CheckPathFromHost checks if the specified path exists from the host
+func (c *Client) CheckPathFromHost(path string) error {
+	stdout, _, err := c.Shell.Execute(fmt.Sprintf("Test-Path -Path '%s'", path))
 	if strings.HasPrefix(stdout, "False") {
 		return fmt.Errorf("no such path: %s", path)
 	}
@@ -68,7 +80,7 @@ func (c *Client) CheckPath(path string) error {
 }
 
 func (c *Client) RemoveFile(path, name string) error {
-	_, _, err := c.Session.Execute(fmt.Sprintf("Remove-Item -Path %s\\%s -Force", path, name))
+	_, _, err := c.Session.Execute(fmt.Sprintf("Remove-Item -Path '%s\\%s' -Force", path, name))
 	return err
 }
 
@@ -124,7 +136,7 @@ func (c *Client) CreateFile(path, name string, data []byte) error {
 	}
 
 	// create the command for copying the file
-	copyCmd := fmt.Sprintf("Copy-Item %s\\%s -Destination %s\\%s -ToSession $%s",
+	copyCmd := fmt.Sprintf("Copy-Item '%s\\%s' -Destination '%s\\%s' -ToSession $%s",
 		wd,
 		FormatFilename(file.Name()),
 		path,
@@ -201,7 +213,7 @@ func (c *Client) Echo(arg string) (string, error) {
 }
 
 func (c *Client) RemoveItem(path string) error {
-	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("Remove-Item -Path %s -Force", path))
+	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("Remove-Item -Path '%s' -Force", path))
 	if stderr != "" {
 		return fmt.Errorf("stderr: %s", stderr)
 	}
@@ -244,7 +256,7 @@ func (c *Client) setLocation(path string) error {
 		return err
 	}
 
-	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("Set-Location %s", path))
+	stdout, stderr, err := c.Session.Execute(fmt.Sprintf("Set-Location '%s'", path))
 	if err != nil {
 		return fmt.Errorf("unable to set location to path: %s - %v", path, err)
 	}
@@ -260,7 +272,7 @@ func (c *Client) setLocalLocation(path string) error {
 		return err
 	}
 
-	stdout, stderr, err := c.Shell.Execute(fmt.Sprintf("Set-Location %s", path))
+	stdout, stderr, err := c.Shell.Execute(fmt.Sprintf("Set-Location '%s'", path))
 	if err != nil {
 		return fmt.Errorf("unable to set location to path: %s - %v", path, err)
 	}
