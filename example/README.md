@@ -64,3 +64,8 @@ List our stages for the specified Runner
 ```bash
 avian runners stages `<runner_name>`
 ```
+
+Delete a runner (use `--force` argument if runner is active)
+```bash
+avian runners delete `<runner_name>`
+```
