@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -60,6 +61,7 @@ var (
 	debug   bool   // To debug the service
 	dbName  string // name for the SQLite-db
 	logPath string // path for the log-files
+	verbose bool   // Used to log to the console
 )
 
 // loggers
@@ -76,6 +78,7 @@ func init() {
 	serviceCmd.Flags().BoolVar(&debug, "debug", false, "for debugging")
 	serviceCmd.Flags().StringVar(&dbName, "db", "avian.db", "path to sqlite database")
 	serviceCmd.Flags().StringVar(&logPath, "log-path", "./log/", "path to log-files")
+	serviceCmd.Flags().BoolVar(&verbose, "verbose", false, "for logging to the console")
 }
 
 func run() error {
@@ -88,6 +91,16 @@ func run() error {
 		zapcore.AddSync(serviceLogger),
 		zap.DebugLevel,
 	)
+
+	if verbose {
+		consoleConfig := zap.NewProductionEncoderConfig()
+		consoleConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		core = zapcore.NewTee(core, zapcore.NewCore(
+			zapcore.NewConsoleEncoder(consoleConfig),
+			zapcore.AddSync(os.Stdout),
+			zap.DebugLevel,
+		))
+	}
 
 	logger := zap.New(core, zap.Option(zap.WithCaller(debug)))
 	defer logger.Sync()
@@ -188,7 +201,15 @@ func run() error {
 	}
 
 	logger.Info("http-service listening", zap.String("address", address), zap.String("port", port))
-	return srv.ListenAndServe()
+	if !verbose {
+		log.Printf("http-service listening @ %s:%s", address, port)
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
+		logger.Error("cannot start http-server", zap.String("address", address), zap.String("port", port), zap.String("exception", err.Error()))
+		return err
+	}
+	return nil
 }
 
 func setLoggers() error {
