@@ -93,3 +93,6 @@ api:
     switches:
       # - -Dnuix.processing.sharedTempDirectory=<path> ## Change this to override worker temp location otherwise defined in the processing profile
       # - -Dnuix.loglevel=DEBUG
+      # - -java.io.tmpdir=<tempfolder>\javatmp
+      # - -Dnuix.worker.tmpdir=<tempfolder>\workertemp
+      # - -Dnuix.logdir=<logfolder> ## Remember to change filebeat config if changing logdir
