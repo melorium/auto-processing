@@ -96,7 +96,7 @@ func applyServers(ctx context.Context, path string) error {
 		return fmt.Errorf("Couldn't parse yml-file %s : %v", path, err)
 	}
 
-	fmt.Fprintf(os.Stdout, "INFO : installing websocket gem for NEW servers - takes ~8 minutes per server\nPlease wait...\n")
+	fmt.Fprintf(os.Stdout, "INFO : Testing connection to servers\nPlease wait...\n")
 
 	var count int
 	for _, srv := range cfg.API.Servers {

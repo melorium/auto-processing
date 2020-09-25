@@ -51,7 +51,7 @@ func (s ServerService) Apply(ctx context.Context, r api.ServerApplyRequest) (*ap
 	// Test connection and install websocket to the server
 	// if it is a new server or the nuix-path has been changed
 	logger.Debug("Checking if the server should be tested or not")
-	if (newSrv.ID == 0 || newSrv.NuixPath != r.NuixPath) && !r.SkipInstall {
+	if newSrv.ID == 0 || newSrv.NuixPath != r.NuixPath {
 		logger.Debug("Testing the server")
 
 		logger.Info("Creating new remote-client for powershell")
@@ -71,11 +71,9 @@ func (s ServerService) Apply(ctx context.Context, r api.ServerApplyRequest) (*ap
 			return nil, fmt.Errorf("failed to create remote-client for powershell: %v", err)
 		}
 
-		nuixPath := powershell.FormatPath(r.NuixPath)
-		logger.Info("Setting up Nuix", zap.String("formatted_path", nuixPath))
-		if err := client.SetupNuix(nuixPath); err != nil {
-			logger.Error("Failed to setup Nuix", zap.String("exception", err.Error()))
-			return nil, err
+		if err := client.CheckPath(r.NuixPath); err != nil {
+			logger.Error("Failed to test NuixPath for server", zap.String("exception", err.Error()))
+			return nil, fmt.Errorf("failed to test nuix-path for server: %v", err)
 		}
 	}
 
