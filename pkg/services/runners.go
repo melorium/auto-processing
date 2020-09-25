@@ -177,6 +177,81 @@ func (s RunnerService) Get(ctx context.Context, r api.RunnerGetRequest) (*api.Ru
 	return &api.RunnerGetResponse{Runner: runner}, nil
 }
 
+func (s RunnerService) Delete(ctx context.Context, r api.RunnerDeleteRequest) (*api.RunnerDeleteResponse, error) {
+	s.logger.Debug("Getting runner to delete", zap.String("runner", r.Name))
+	if r.DeleteAllCases {
+		// Delete all cases associated with the runner
+	} else if r.DeleteCase {
+		// Delete the single-case for the runner
+	}
+
+	// start transaction for the delete
+	tx := s.db.Begin()
+
+	var runner api.Runner
+	err := tx.Preload("Switches").
+		Preload("Stages.Process").
+		Preload("Stages.SearchAndTag").
+		Preload("Stages.Exclude").
+		Preload("Stages.Ocr").
+		Preload("Stages.Reload").
+		Preload("Stages.Populate").
+		Preload("CaseSettings.Case").
+		Preload("CaseSettings.CompoundCase").
+		Preload("CaseSettings.ReviewCompound").
+		First(&runner, "name = ?", r.Name).Error
+	if err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot get runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	// check if the runner is active
+	// unless the delete is forced
+	if runner.Active {
+		if !r.Force {
+			tx.Rollback()
+			s.logger.Error("Cannot delete active runner", zap.String("runner", r.Name))
+			return nil, fmt.Errorf("Cannot delete active runner - use force argument")
+		}
+
+		// TODO : set the active server to inactive
+	}
+
+	s.logger.Debug("Deleting runner", zap.String("runner", r.Name))
+	if err := tx.Delete(&runner).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot delete runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	if err := tx.Model(&runner).Association("Stages").Delete(runner.Stages).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot delete runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	if err := tx.Model(&runner).Association("Switches").Delete(runner.Switches).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot delete runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	if err := tx.Model(&runner).Association("CaseSettings").Delete(runner.CaseSettings).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot delete runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Cannot delete runner, failed to commit transaction", zap.String("runner", r.Name), zap.String("exception", err.Error()))
+		return nil, err
+	}
+
+	return &api.RunnerDeleteResponse{}, nil
+}
+
 func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
 	logger.Debug("StartStage request")
@@ -285,7 +360,7 @@ func (s RunnerService) LogItem(ctx context.Context, r api.LogItemRequest) (*api.
 }
 
 func (s RunnerService) LogDebug(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
 	logger, err := s.getLogger(logName)
 	if err != nil {
 		return nil, err
@@ -301,7 +376,7 @@ func (s RunnerService) LogDebug(ctx context.Context, r api.LogRequest) (*api.Log
 }
 
 func (s RunnerService) LogInfo(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
 	logger, err := s.getLogger(logName)
 	if err != nil {
 		return nil, err
@@ -317,7 +392,7 @@ func (s RunnerService) LogInfo(ctx context.Context, r api.LogRequest) (*api.LogR
 }
 
 func (s RunnerService) LogError(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s.log", s.logPath, r.Runner)
+	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
 	logger, err := s.getLogger(logName)
 	if err != nil {
 		return nil, err

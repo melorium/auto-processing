@@ -202,6 +202,9 @@ type RunnerService interface {
 	// Get returns the requested Runner
 	Get(RunnerGetRequest) RunnerGetResponse
 
+	// Delete deletes the requested Runner
+	Delete(RunnerDeleteRequest) RunnerDeleteResponse
+
 	// StartStage sets a stage to Active
 	StartStage(StageRequest) StageResponse
 
@@ -323,6 +326,28 @@ type RunnerGetRequest struct {
 type RunnerGetResponse struct {
 	Runner Runner
 }
+
+// RunnerDeleteRequest is the input-object
+// for deleting a runner by name
+type RunnerDeleteRequest struct {
+	// Name of the runner
+	Name string
+
+	// DeleteCase - if the user wants
+	// to delete the case for the runner
+	DeleteCase bool
+
+	// DeleteAllCases - if the user
+	// wants to delete all cases for the runner
+	DeleteAllCases bool
+
+	// Force - if the delete should be forced
+	Force bool
+}
+
+// RunnerDeleteResponse is the output-object
+// for deleting a runner by name
+type RunnerDeleteResponse struct{}
 
 // NuixSwitch is a command argument for
 // nuix-console

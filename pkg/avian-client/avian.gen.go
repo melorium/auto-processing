@@ -286,6 +286,61 @@ func (s *RunnerService) Apply(ctx context.Context, r RunnerApplyRequest) (*Runne
 	return &response.RunnerApplyResponse, nil
 }
 
+// Delete deletes the requested Runner
+func (s *RunnerService) Delete(ctx context.Context, r RunnerDeleteRequest) (*RunnerDeleteResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Delete: marshal RunnerDeleteRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Delete: generate signature RunnerDeleteRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.Delete"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Delete: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Delete")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		RunnerDeleteResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.Delete: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Delete: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.Delete: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.RunnerDeleteResponse, nil
+}
+
 // FailedStage sets a stage to Failed
 func (s *RunnerService) FailedStage(ctx context.Context, r StageRequest) (*StageResponse, error) {
 	requestBodyBytes, err := json.Marshal(r)
@@ -1304,6 +1359,26 @@ type RunnerApplyRequest struct {
 // the backend
 type RunnerApplyResponse struct {
 	Runner Runner `json:"runner" yaml:"runner"`
+}
+
+// RunnerDeleteRequest is the input-object for deleting a runner by name
+type RunnerDeleteRequest struct {
+
+	// Name of the runner
+	Name string `json:"name" yaml:"name"`
+
+	// DeleteCase - if the user wants to delete the case for the runner
+	DeleteCase bool `json:"deleteCase" yaml:"deleteCase"`
+
+	// DeleteAllCases - if the user wants to delete all cases for the runner
+	DeleteAllCases bool `json:"deleteAllCases" yaml:"deleteAllCases"`
+
+	// Force - if the delete should be forced
+	Force bool `json:"force" yaml:"force"`
+}
+
+// RunnerDeleteResponse is the output-object for deleting a runner by name
+type RunnerDeleteResponse struct {
 }
 
 // RunnerGetRequest is the input-object for requesting a runner by name

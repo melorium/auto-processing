@@ -24,6 +24,8 @@ type RunnerService interface {
 
 	// Apply applies the configuration to the backend
 	Apply(context.Context, RunnerApplyRequest) (*RunnerApplyResponse, error)
+	// Delete deletes the requested Runner
+	Delete(context.Context, RunnerDeleteRequest) (*RunnerDeleteResponse, error)
 	// FailedStage sets a stage to Failed
 	FailedStage(context.Context, StageRequest) (*StageResponse, error)
 	// FinishStage sets a stage to Finished
@@ -132,6 +134,7 @@ func RegisterRunnerService(server *otohttp.Server, runnerService RunnerService) 
 		runnerService: runnerService,
 	}
 	server.Register("RunnerService", "Apply", handler.handleApply)
+	server.Register("RunnerService", "Delete", handler.handleDelete)
 	server.Register("RunnerService", "FailedStage", handler.handleFailedStage)
 	server.Register("RunnerService", "FinishStage", handler.handleFinishStage)
 	server.Register("RunnerService", "Get", handler.handleGet)
@@ -150,6 +153,24 @@ func (s *runnerServiceServer) handleApply(w http.ResponseWriter, r *http.Request
 		return
 	}
 	response, err := s.runnerService.Apply(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleDelete(w http.ResponseWriter, r *http.Request) {
+	var request RunnerDeleteRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.Delete(r.Context(), request)
 	if err != nil {
 		log.Println("TODO: oto service error:", err)
 		s.server.OnErr(w, r, err)
@@ -694,6 +715,24 @@ type RunnerApplyRequest struct {
 // the backend
 type RunnerApplyResponse struct {
 	Runner Runner `json:"runner" yaml:"runner"`
+	// Error is string explaining what went wrong. Empty if everything was fine.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+// RunnerDeleteRequest is the input-object for deleting a runner by name
+type RunnerDeleteRequest struct {
+	// Name of the runner
+	Name string `json:"name" yaml:"name"`
+	// DeleteCase - if the user wants to delete the case for the runner
+	DeleteCase bool `json:"deleteCase" yaml:"deleteCase"`
+	// DeleteAllCases - if the user wants to delete all cases for the runner
+	DeleteAllCases bool `json:"deleteAllCases" yaml:"deleteAllCases"`
+	// Force - if the delete should be forced
+	Force bool `json:"force" yaml:"force"`
+}
+
+// RunnerDeleteResponse is the output-object for deleting a runner by name
+type RunnerDeleteResponse struct {
 	// Error is string explaining what went wrong. Empty if everything was fine.
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 }

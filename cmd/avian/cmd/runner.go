@@ -59,7 +59,7 @@ var runnersListCmd = &cobra.Command{
 	Short: "List the runners",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := listRunners(context.Background()); err != nil {
-			fmt.Fprintf(os.Stderr, "could not apply runner to backend: %v\n", err)
+			fmt.Fprintf(os.Stderr, "could not list runners from backend: %v\n", err)
 		}
 	},
 }
@@ -71,12 +71,27 @@ var runnerStagesCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := stagesRunner(context.Background(), args[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "could not apply runner to backend: %v\n", err)
+			fmt.Fprintf(os.Stderr, "could not get stages for runner from backend: %v\n", err)
 		}
 	},
 }
 
-var runnerService *avian.RunnerService
+// runnerDeleteCmd represents the delete runner command
+var runnerDeleteCmd = &cobra.Command{
+	Use:   "delete",
+	Short: "List the stages for the specified runner (specified by name)",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := deleteRunner(context.Background(), args[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "could not delete runner from backend: %v\n", err)
+		}
+	},
+}
+
+var (
+	runnerService *avian.RunnerService
+	forceDelete   bool
+)
 
 func init() {
 	address := os.Getenv("AVIAN_ADDRESS")
@@ -101,6 +116,8 @@ func init() {
 	runnersCmd.AddCommand(runnersApplyCmd)
 	runnersCmd.AddCommand(runnersListCmd)
 	runnersCmd.AddCommand(runnerStagesCmd)
+	runnersCmd.AddCommand(runnerDeleteCmd)
+	runnerDeleteCmd.Flags().BoolVar(&forceDelete, "force", false, "force deleting an active runner")
 }
 
 func applyRunner(ctx context.Context, path string) error {
@@ -152,7 +169,7 @@ func listRunners(ctx context.Context) error {
 		body = append(body, table.Row{r.ID, r.Name, r.Hostname, r.Nms, r.Licence, r.Workers, stage, status})
 	}
 
-	fmt.Println(pretty.Format(headers, body))
+	fmt.Fprintf(os.Stdout, "%s\n", pretty.Format(headers, body))
 	return nil
 }
 
@@ -170,6 +187,16 @@ func stagesRunner(ctx context.Context, runner string) error {
 		body = append(body, table.Row{s.ID, resp.Runner.Name, s.Name(), s.Status()})
 	}
 
-	fmt.Println(pretty.Format(headers, body))
+	fmt.Fprintf(os.Stdout, "%s\n", pretty.Format(headers, body))
+	return nil
+}
+
+func deleteRunner(ctx context.Context, runner string) error {
+	_, err := runnerService.Delete(ctx, avian.RunnerDeleteRequest{Name: runner, Force: forceDelete})
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "Runner: %s has been deleted", runner)
 	return nil
 }
