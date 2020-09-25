@@ -115,10 +115,15 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 	// check that all the paths for the runner exists in the server
 	logger.Info("Validating paths for runner")
 	for _, path := range runner.Paths() {
-		formattedPath := powershell.FormatPath(path)
-		if err := client.CheckPath(formattedPath); err != nil {
+		var err error
+		if powershell.IsUnc(path) {
+			err = client.CheckPathFromHost(path)
+		} else {
+			err = client.CheckPath(path)
+		}
+		if err != nil {
 			logger.Error("Failed to validate path", zap.String("path", path), zap.String("exception", err.Error()))
-			return nil, fmt.Errorf("path: %s - err : %v", formattedPath, err)
+			return nil, fmt.Errorf("path: %s - err : %v", path, err)
 		}
 	}
 
