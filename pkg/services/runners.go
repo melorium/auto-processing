@@ -215,7 +215,16 @@ func (s RunnerService) Delete(ctx context.Context, r api.RunnerDeleteRequest) (*
 			return nil, fmt.Errorf("Cannot delete active runner - use force argument")
 		}
 
-		// TODO : set the active server to inactive
+		// set the runners server to inactive
+		if err := tx.Model(&api.Server{}).Where("hostname = ?", runner.Hostname).Update("active", false).Error; err != nil {
+			tx.Rollback()
+			s.logger.Error("Cannot set server to inactive",
+				zap.String("runner", r.Name),
+				zap.String("server", runner.Hostname),
+				zap.String("exception", err.Error()),
+			)
+			return nil, fmt.Errorf("Cannot set the active server to inactive: %v", err)
+		}
 	}
 
 	s.logger.Debug("Deleting runner", zap.String("runner", r.Name))
