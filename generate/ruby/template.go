@@ -50,7 +50,7 @@ def failed(id)
 end
 
 def log_item(stage, stage_id, message, count, mime_type, guid, processStage)
-  send_request('LogItem', {
+  item = {
     runner: '<%= runner.Name %>', 
     stage: stage, 
     stageID: stage_id,
@@ -59,7 +59,9 @@ def log_item(stage, stage_id, message, count, mime_type, guid, processStage)
     mimeType: mime_type, 
     gUID: guid, 
     processStage: processStage,
-  })
+  }
+  puts("item processed: #{item}")
+  #send_request('LogItem', item)
 end
 
 def log_debug(stage, stage_id, message)
