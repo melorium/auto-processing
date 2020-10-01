@@ -386,7 +386,7 @@ begin
 
     # variables to use for batched ocr
     batch_index = 0
-    target_batch_size = 1000
+    target_batch_size = 100
     total_batches = (ocr_items.size.to_f / target_batch_size.to_f).ceil
 
     ocr_items.each_slice(target_batch_size) do |slice_items|
