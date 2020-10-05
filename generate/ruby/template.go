@@ -368,7 +368,7 @@ begin
     log_debug('<%= stageName(s) %>', <%= s.ID %>, 'OCR-profile has been imported')
   end
 
-  ocr_processor.set_ocr_profile('<%= s.Ocr.Profile %>')
+  ocr_profile = $utilities.get_ocr_profile_store.get_profile('<%= s.Ocr.Profile %>')
   ocr_items = single_case.search('<%= formatQuotes(s.Ocr.Search) %>')
   log_debug('<%= stageName(s) %>', <%= s.ID %>, "Found #{ocr_items.length} from search: <%= s.Ocr.Search %> - starts ocr")
   if ocr_items.length == 0 
@@ -391,7 +391,7 @@ begin
 
     ocr_items.each_slice(target_batch_size) do |slice_items|
       log_info('<%= stageName(s) %>', <%= s.ID %>, "Start ocr-processing batch : #{batch_index+1}/#{total_batches}")
-      ocr_processor.process(slice_items)
+      ocr_processor.process(slice_items, ocr_profile)
       batch_index += 1
     end
   end
