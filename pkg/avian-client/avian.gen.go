@@ -18,6 +18,7 @@ import (
 
 	datastore "github.com/avian-digital-forensics/auto-processing/pkg/datastore"
 	"github.com/pkg/errors"
+	time "time"
 )
 
 // Client is used to access Pace services.
@@ -1472,8 +1473,11 @@ type Runner struct {
 	// Active - if the runner is active or not
 	Active bool `json:"active" yaml:"active"`
 
-	// Finished - if the runner has finished or not
-	Finished bool `json:"finished" yaml:"finished"`
+	// Status for the runner
+	Status int64 `json:"status" yaml:"status"`
+
+	// HealthyAt - last time the runner was healthy
+	HealthyAt *time.Time `json:"healthyAt" yaml:"healthyAt"`
 
 	// CaseSettings for the cases to use
 	CaseSettingsID uint `json:"caseSettingsID" yaml:"caseSettingsID"`
