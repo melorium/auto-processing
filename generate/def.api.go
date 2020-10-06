@@ -1,6 +1,10 @@
 package def
 
-import "github.com/avian-digital-forensics/auto-processing/pkg/datastore"
+import (
+	"time"
+
+	"github.com/avian-digital-forensics/auto-processing/pkg/datastore"
+)
 
 // ServerService handles all the servers
 type ServerService interface {
@@ -262,8 +266,11 @@ type Runner struct {
 	// Active - if the runner is active or not
 	Active bool
 
-	// Finished - if the runner has finished or not
-	Finished bool
+	// Status for the runner
+	Status int64
+
+	// HealthyAt - last time the runner was healthy
+	HealthyAt *time.Time
 
 	// CaseSettings for the cases to use
 	CaseSettingsID uint
