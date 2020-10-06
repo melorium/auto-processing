@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	avian "github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
@@ -261,6 +262,81 @@ func (s RunnerService) Delete(ctx context.Context, r api.RunnerDeleteRequest) (*
 	return &api.RunnerDeleteResponse{}, nil
 }
 
+func (s RunnerService) Start(ctx context.Context, r api.RunnerStartRequest) (*api.RunnerStartResponse, error) {
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
+	logger.Info("Starting runner")
+	var runner api.Runner
+	if err := s.db.First(&runner, r.ID).Error; err != nil {
+		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot get runner: %v", err)
+	}
+	now := time.Now()
+	runner.Status = avian.StatusRunning
+	runner.HealthyAt = &now
+	if err := s.db.Save(&runner).Error; err != nil {
+		logger.Error("Cannot save the started runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot save runner: %v", err)
+	}
+
+	return &api.RunnerStartResponse{}, nil
+}
+
+func (s RunnerService) Failed(ctx context.Context, r api.RunnerFailedRequest) (*api.RunnerFailedResponse, error) {
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
+	logger.Info("Failed runner")
+	var runner api.Runner
+	if err := s.db.First(&runner, r.ID).Error; err != nil {
+		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot get runner: %v", err)
+	}
+	runner.Status = avian.StatusFailed
+	runner.Active = false
+	if err := s.db.Save(&runner).Error; err != nil {
+		logger.Error("Cannot save the failed runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot save runner: %v", err)
+	}
+
+	// Set servers activity
+	if err := s.setServerActivity(runner, false); err != nil {
+		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
+	}
+
+	// update nms information
+	if err := s.resetNms(runner); err != nil {
+		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
+	}
+
+	return &api.RunnerFailedResponse{}, nil
+}
+
+func (s RunnerService) Finish(ctx context.Context, r api.RunnerFinishRequest) (*api.RunnerFinishResponse, error) {
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
+	logger.Info("Finished runner")
+	var runner api.Runner
+	if err := s.db.First(&runner, r.ID).Error; err != nil {
+		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot get runner: %v", err)
+	}
+	runner.Status = avian.StatusFinished
+	runner.Active = false
+	if err := s.db.Save(&runner).Error; err != nil {
+		logger.Error("Cannot save the failed runner", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("cannot save runner: %v", err)
+	}
+
+	// Set servers activity
+	if err := s.setServerActivity(runner, false); err != nil {
+		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
+	}
+
+	// update nms information
+	if err := s.resetNms(runner); err != nil {
+		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
+	}
+
+	return &api.RunnerFinishResponse{}, nil
+}
+
 func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
 	logger.Debug("StartStage request")
@@ -440,4 +516,58 @@ func (s RunnerService) getLogger(logName string) (*zap.Logger, error) {
 
 	logger := zap.New(core)
 	return logger, nil
+}
+
+func (s RunnerService) setServerActivity(runner api.Runner, active bool) error {
+	if err := s.db.Model(&api.Server{}).Where("hostname = ?", runner.Hostname).Update("active", active).Error; err != nil {
+		s.logger.Error("Cannot set servers activity",
+			zap.String("runner", runner.Name),
+			zap.String("server", runner.Hostname),
+			zap.String("exception", err.Error()),
+		)
+		return err
+	}
+	return nil
+}
+
+func (s RunnerService) resetNms(runner api.Runner) error {
+	// Get the latest data for the nms-server
+	var nms api.Nms
+	if err := s.db.Preload("Licences").First(&nms, "address = ?", runner.Nms).Error; err != nil {
+		s.logger.Error("Cannot get NMS from DB",
+			zap.String("runner", runner.Name),
+			zap.String("nms", runner.Nms),
+			zap.String("exception", err.Error()),
+		)
+		return err
+	}
+
+	// Reset the licences for the nms
+	nms.InUse = nms.InUse - runner.Workers
+	for _, lic := range nms.Licences {
+		if lic.Type == runner.Licence {
+			lic.InUse = lic.InUse - 1
+			if err := s.db.Save(&lic).Error; err != nil {
+				s.logger.Error("Cannot update licence-information to DB",
+					zap.String("runner", runner.Name),
+					zap.String("nms", runner.Nms),
+					zap.String("licence", lic.Type),
+					zap.String("exception", err.Error()),
+				)
+				return err
+			}
+		}
+	}
+
+	// update the nms to the db
+	if err := s.db.Save(&nms).Error; err != nil {
+		s.logger.Error("Cannot update nms-information to DB",
+			zap.String("runner", runner.Name),
+			zap.String("nms", runner.Nms),
+			zap.String("licence", runner.Licence),
+			zap.String("exception", err.Error()),
+		)
+		return err
+	}
+	return nil
 }

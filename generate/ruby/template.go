@@ -34,7 +34,22 @@ def send_request(method, body)
   end
 end
 
-# Set stage to finish
+# Set runner to running
+def start_runner
+  send_request('Start', {runner: '<%= runner.Name %>', id: <%= runner.ID %>})
+end
+
+# Set runner to failed
+def failed_runner(exception)
+  send_request('Failed', {runner: '<%= runner.Name %>', id: <%= runner.ID %>, exception: exception})
+end
+
+# Set runner to finished
+def finish_runner
+  send_request('Finish', {runner: '<%= runner.Name %>', id: <%= runner.ID %>})
+end
+
+# Set stage to failed
 def finish(id)
   send_request('FinishStage', {runner: '<%= runner.Name %>', stageID: id})
 end
@@ -92,6 +107,8 @@ def log_error(stage, stage_id, message, exception)
   })
 end
 
+# start the runner
+start_runner
 
 @case_factory = $utilities.getCaseFactory
 
@@ -228,6 +245,7 @@ rescue => e
   log_error('', 0, 'Cannot initialize processor', e)
   STDERR.puts("error initializing processor #{e}")
   tear_down(single_case, compound_case, review_compound)
+  failed_runner(e)
   exit(false)
 end
 
@@ -259,6 +277,7 @@ rescue => e
   tear_down(single_case, compound_case, review_compound)
   log_error('Process', <%= getProcessingStageID(runner) %>, 'Processing failed', e)
   STDERR.puts("Processing failed: #{e}")
+  failed_runner(e)
   exit(false)
 end
 <% } %><%= for (i, s) in getStages(runner) { %><%= if (searchAndTag(s)) { %>
@@ -311,6 +330,7 @@ rescue => e
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
+  failed_runner(e)
   exit(false)
 end
 <% } else if (exclude(s)) { %>
@@ -346,6 +366,7 @@ rescue => e
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
+  failed_runner(e)
   exit(false)
 end
 <% } else if (ocr(s)) { %>
@@ -413,6 +434,7 @@ rescue => e
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
+  failed_runner(e)
   exit(false)
 end
 <% } else if (populate(s)) { %>
@@ -490,6 +512,7 @@ rescue => e
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
+  failed_runner(e)
   exit(false)
 end
 <% } else if (reload(s)) { %>
@@ -555,5 +578,7 @@ rescue => e
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
+  failed_runner(e)
   exit(false)
-end<% } %><% } %><% } %><% } %>`
+end<% } %><% } %><% } %><% } %>
+finish_runner`
