@@ -9,6 +9,8 @@ const (
 	StatusFinished int64 = 3
 )
 
+func Status(status int64) string { return getStatus(status) }
+
 func getStatus(status int64) string {
 	if status == StatusWaiting {
 		return "Waiting"

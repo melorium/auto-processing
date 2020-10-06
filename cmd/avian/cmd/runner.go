@@ -148,7 +148,7 @@ func listRunners(ctx context.Context) error {
 
 	var headers table.Row
 	var body []table.Row
-	headers = table.Row{"ID", "Runner", "Host", "Nms", "Licencetype", "Workers", "Stage", "Status"}
+	headers = table.Row{"ID", "Runner", "Host", "Nms", "Licencetype", "Workers", "Status", "Stage"}
 	for _, r := range resp.Runners {
 		var status string
 		var stage string
@@ -161,12 +161,16 @@ func listRunners(ctx context.Context) error {
 				break
 			}
 
+			if status == "Failed" {
+				break
+			}
+
 			// Break if the stage is waiting
 			if status == "Waiting" {
 				break
 			}
 		}
-		body = append(body, table.Row{r.ID, r.Name, r.Hostname, r.Nms, r.Licence, r.Workers, stage, status})
+		body = append(body, table.Row{r.ID, r.Name, r.Hostname, r.Nms, r.Licence, r.Workers, avian.Status(r.Status), stage})
 	}
 
 	fmt.Fprintf(os.Stdout, "%s\n", pretty.Format(headers, body))
