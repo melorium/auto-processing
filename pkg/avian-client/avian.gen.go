@@ -341,6 +341,61 @@ func (s *RunnerService) Delete(ctx context.Context, r RunnerDeleteRequest) (*Run
 	return &response.RunnerDeleteResponse, nil
 }
 
+// Failed sets a runner to failed
+func (s *RunnerService) Failed(ctx context.Context, r RunnerFailedRequest) (*RunnerFailedResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Failed: marshal RunnerFailedRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Failed: generate signature RunnerFailedRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.Failed"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Failed: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Failed")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		RunnerFailedResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.Failed: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Failed: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.Failed: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.RunnerFailedResponse, nil
+}
+
 // FailedStage sets a stage to Failed
 func (s *RunnerService) FailedStage(ctx context.Context, r StageRequest) (*StageResponse, error) {
 	requestBodyBytes, err := json.Marshal(r)
@@ -394,6 +449,61 @@ func (s *RunnerService) FailedStage(ctx context.Context, r StageRequest) (*Stage
 		return nil, errors.New(response.Error)
 	}
 	return &response.StageResponse, nil
+}
+
+// Finish sets a runner to finished
+func (s *RunnerService) Finish(ctx context.Context, r RunnerFinishRequest) (*RunnerFinishResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Finish: marshal RunnerFinishRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Finish: generate signature RunnerFinishRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.Finish"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Finish: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Finish")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		RunnerFinishResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.Finish: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Finish: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.Finish: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.RunnerFinishResponse, nil
 }
 
 // FinishStage sets a stage to Finished
@@ -779,6 +889,61 @@ func (s *RunnerService) LogItem(ctx context.Context, r LogItemRequest) (*LogResp
 		return nil, errors.New(response.Error)
 	}
 	return &response.LogResponse, nil
+}
+
+// Start sets a runner to started
+func (s *RunnerService) Start(ctx context.Context, r RunnerStartRequest) (*RunnerStartResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Start: marshal RunnerStartRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Start: generate signature RunnerStartRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.Start"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Start: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Start")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		RunnerStartResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.Start: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Start: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.Start: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.RunnerStartResponse, nil
 }
 
 // StartStage sets a stage to Active
@@ -1381,6 +1546,24 @@ type RunnerDeleteRequest struct {
 type RunnerDeleteResponse struct {
 }
 
+// RunnerFailedRequest is the input-object for failing a runner by id
+type RunnerFailedRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerFailedResponse is the output-object for failing a runner by id
+type RunnerFailedResponse struct {
+}
+
+// RunnerFinishRequest is the input-object for finishing a runner by id
+type RunnerFinishRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerFinishResponse is the output-object for finishing a runner by id
+type RunnerFinishResponse struct {
+}
+
 // RunnerGetRequest is the input-object for requesting a runner by name
 type RunnerGetRequest struct {
 	Name string `json:"name" yaml:"name"`
@@ -1434,6 +1617,15 @@ type Stage struct {
 
 type StageResponse struct {
 	Stage Stage `json:"stage" yaml:"stage"`
+}
+
+// RunnerStartRequest is the input-object for starting a runner by id
+type RunnerStartRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerStartResponse is the output-object for starting a runner by id
+type RunnerStartResponse struct {
 }
 
 // SearchAndTag searches and tags data in a Nuix-case

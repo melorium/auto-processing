@@ -205,6 +205,15 @@ type RunnerService interface {
 	// Delete deletes the requested Runner
 	Delete(RunnerDeleteRequest) RunnerDeleteResponse
 
+	// Start sets a runner to started
+	Start(RunnerStartRequest) RunnerStartResponse
+
+	// Failed sets a runner to failed
+	Failed(RunnerFailedRequest) RunnerFailedResponse
+
+	// Finish sets a runner to finished
+	Finish(RunnerFinishRequest) RunnerFinishResponse
+
 	// StartStage sets a stage to Active
 	StartStage(StageRequest) StageResponse
 
@@ -348,6 +357,36 @@ type RunnerDeleteRequest struct {
 // RunnerDeleteResponse is the output-object
 // for deleting a runner by name
 type RunnerDeleteResponse struct{}
+
+// RunnerStartRequest is the input-object
+// for starting a runner by id
+type RunnerStartRequest struct {
+	ID uint
+}
+
+// RunnerStartResponse is the output-object
+// for starting a runner by id
+type RunnerStartResponse struct{}
+
+// RunnerFailedRequest is the input-object
+// for failing a runner by id
+type RunnerFailedRequest struct {
+	ID uint
+}
+
+// RunnerFailedResponse is the output-object
+// for failing a runner by id
+type RunnerFailedResponse struct{}
+
+// RunnerFinishRequest is the input-object
+// for finishing a runner by id
+type RunnerFinishRequest struct {
+	ID uint
+}
+
+// RunnerFinishResponse is the output-object
+// for finishing a runner by id
+type RunnerFinishResponse struct{}
 
 // NuixSwitch is a command argument for
 // nuix-console

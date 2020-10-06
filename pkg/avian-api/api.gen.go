@@ -26,8 +26,12 @@ type RunnerService interface {
 	Apply(context.Context, RunnerApplyRequest) (*RunnerApplyResponse, error)
 	// Delete deletes the requested Runner
 	Delete(context.Context, RunnerDeleteRequest) (*RunnerDeleteResponse, error)
+	// Failed sets a runner to failed
+	Failed(context.Context, RunnerFailedRequest) (*RunnerFailedResponse, error)
 	// FailedStage sets a stage to Failed
 	FailedStage(context.Context, StageRequest) (*StageResponse, error)
+	// Finish sets a runner to finished
+	Finish(context.Context, RunnerFinishRequest) (*RunnerFinishResponse, error)
 	// FinishStage sets a stage to Finished
 	FinishStage(context.Context, StageRequest) (*StageResponse, error)
 	// Get returns the requested Runner
@@ -42,6 +46,8 @@ type RunnerService interface {
 	LogInfo(context.Context, LogRequest) (*LogResponse, error)
 	// LogItem logs an item
 	LogItem(context.Context, LogItemRequest) (*LogResponse, error)
+	// Start sets a runner to started
+	Start(context.Context, RunnerStartRequest) (*RunnerStartResponse, error)
 	// StartStage sets a stage to Active
 	StartStage(context.Context, StageRequest) (*StageResponse, error)
 }
@@ -135,7 +141,9 @@ func RegisterRunnerService(server *otohttp.Server, runnerService RunnerService) 
 	}
 	server.Register("RunnerService", "Apply", handler.handleApply)
 	server.Register("RunnerService", "Delete", handler.handleDelete)
+	server.Register("RunnerService", "Failed", handler.handleFailed)
 	server.Register("RunnerService", "FailedStage", handler.handleFailedStage)
+	server.Register("RunnerService", "Finish", handler.handleFinish)
 	server.Register("RunnerService", "FinishStage", handler.handleFinishStage)
 	server.Register("RunnerService", "Get", handler.handleGet)
 	server.Register("RunnerService", "List", handler.handleList)
@@ -143,6 +151,7 @@ func RegisterRunnerService(server *otohttp.Server, runnerService RunnerService) 
 	server.Register("RunnerService", "LogError", handler.handleLogError)
 	server.Register("RunnerService", "LogInfo", handler.handleLogInfo)
 	server.Register("RunnerService", "LogItem", handler.handleLogItem)
+	server.Register("RunnerService", "Start", handler.handleStart)
 	server.Register("RunnerService", "StartStage", handler.handleStartStage)
 }
 
@@ -182,6 +191,24 @@ func (s *runnerServiceServer) handleDelete(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+func (s *runnerServiceServer) handleFailed(w http.ResponseWriter, r *http.Request) {
+	var request RunnerFailedRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.Failed(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
 func (s *runnerServiceServer) handleFailedStage(w http.ResponseWriter, r *http.Request) {
 	var request StageRequest
 	if err := otohttp.Decode(r, &request); err != nil {
@@ -189,6 +216,24 @@ func (s *runnerServiceServer) handleFailedStage(w http.ResponseWriter, r *http.R
 		return
 	}
 	response, err := s.runnerService.FailedStage(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleFinish(w http.ResponseWriter, r *http.Request) {
+	var request RunnerFinishRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.Finish(r.Context(), request)
 	if err != nil {
 		log.Println("TODO: oto service error:", err)
 		s.server.OnErr(w, r, err)
@@ -315,6 +360,24 @@ func (s *runnerServiceServer) handleLogItem(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	response, err := s.runnerService.LogItem(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleStart(w http.ResponseWriter, r *http.Request) {
+	var request RunnerStartRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.Start(r.Context(), request)
 	if err != nil {
 		log.Println("TODO: oto service error:", err)
 		s.server.OnErr(w, r, err)
@@ -737,6 +800,28 @@ type RunnerDeleteResponse struct {
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
+// RunnerFailedRequest is the input-object for failing a runner by id
+type RunnerFailedRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerFailedResponse is the output-object for failing a runner by id
+type RunnerFailedResponse struct {
+	// Error is string explaining what went wrong. Empty if everything was fine.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+// RunnerFinishRequest is the input-object for finishing a runner by id
+type RunnerFinishRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerFinishResponse is the output-object for finishing a runner by id
+type RunnerFinishResponse struct {
+	// Error is string explaining what went wrong. Empty if everything was fine.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
 // RunnerGetRequest is the input-object for requesting a runner by name
 type RunnerGetRequest struct {
 	Name string `json:"name" yaml:"name"`
@@ -786,6 +871,17 @@ type Stage struct {
 
 type StageResponse struct {
 	Stage Stage `json:"stage" yaml:"stage"`
+	// Error is string explaining what went wrong. Empty if everything was fine.
+	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+// RunnerStartRequest is the input-object for starting a runner by id
+type RunnerStartRequest struct {
+	ID uint `json:"id" yaml:"id"`
+}
+
+// RunnerStartResponse is the output-object for starting a runner by id
+type RunnerStartResponse struct {
 	// Error is string explaining what went wrong. Empty if everything was fine.
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 }
