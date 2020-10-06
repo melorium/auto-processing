@@ -361,7 +361,8 @@ type RunnerDeleteResponse struct{}
 // RunnerStartRequest is the input-object
 // for starting a runner by id
 type RunnerStartRequest struct {
-	ID uint
+	ID     uint
+	Runner string
 }
 
 // RunnerStartResponse is the output-object
@@ -371,7 +372,8 @@ type RunnerStartResponse struct{}
 // RunnerFailedRequest is the input-object
 // for failing a runner by id
 type RunnerFailedRequest struct {
-	ID uint
+	ID     uint
+	Runner string
 }
 
 // RunnerFailedResponse is the output-object
@@ -381,7 +383,8 @@ type RunnerFailedResponse struct{}
 // RunnerFinishRequest is the input-object
 // for finishing a runner by id
 type RunnerFinishRequest struct {
-	ID uint
+	ID     uint
+	Runner string
 }
 
 // RunnerFinishResponse is the output-object
