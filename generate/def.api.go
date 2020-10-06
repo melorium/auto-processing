@@ -379,8 +379,9 @@ type RunnerStartResponse struct{}
 // RunnerFailedRequest is the input-object
 // for failing a runner by id
 type RunnerFailedRequest struct {
-	ID     uint
-	Runner string
+	ID        uint
+	Runner    string
+	Exception string
 }
 
 // RunnerFailedResponse is the output-object
