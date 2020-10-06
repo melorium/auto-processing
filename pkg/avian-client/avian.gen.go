@@ -1549,6 +1549,8 @@ type RunnerDeleteResponse struct {
 // RunnerFailedRequest is the input-object for failing a runner by id
 type RunnerFailedRequest struct {
 	ID uint `json:"id" yaml:"id"`
+
+	Runner string `json:"runner" yaml:"runner"`
 }
 
 // RunnerFailedResponse is the output-object for failing a runner by id
@@ -1558,6 +1560,8 @@ type RunnerFailedResponse struct {
 // RunnerFinishRequest is the input-object for finishing a runner by id
 type RunnerFinishRequest struct {
 	ID uint `json:"id" yaml:"id"`
+
+	Runner string `json:"runner" yaml:"runner"`
 }
 
 // RunnerFinishResponse is the output-object for finishing a runner by id
@@ -1622,6 +1626,8 @@ type StageResponse struct {
 // RunnerStartRequest is the input-object for starting a runner by id
 type RunnerStartRequest struct {
 	ID uint `json:"id" yaml:"id"`
+
+	Runner string `json:"runner" yaml:"runner"`
 }
 
 // RunnerStartResponse is the output-object for starting a runner by id
