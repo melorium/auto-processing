@@ -27,6 +27,34 @@ func getStatus(status int64) string {
 	return "Unknown"
 }
 
+func StageState(s *api.Stage) int64 {
+	if s.Process != nil {
+		return s.Process.Status
+	}
+
+	if s.SearchAndTag != nil {
+		return s.SearchAndTag.Status
+	}
+
+	if s.Ocr != nil {
+		return s.Ocr.Status
+	}
+
+	if s.Exclude != nil {
+		return s.Exclude.Status
+	}
+
+	if s.Reload != nil {
+		return s.Reload.Status
+	}
+
+	if s.Populate != nil {
+		return s.Populate.Status
+	}
+
+	return 0
+}
+
 func (s *Stage) Status() string {
 	if s.Process != nil {
 		return getStatus(s.Process.Status)

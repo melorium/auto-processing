@@ -313,6 +313,9 @@ type RunnerApplyRequest struct {
 
 	// Switches to use for nuix-console
 	Switches []string
+
+	// Update - if the runner should be updated
+	Update bool
 }
 
 // RunnerApplyResponse is the output-object for
@@ -485,6 +488,9 @@ type Stage struct {
 
 	// Foreign-key for runners
 	RunnerID uint
+
+	// Index for where the stage where indexed in the yaml
+	Index uint
 
 	// Process-stage processes data into a Nuix-case
 	Process *Process

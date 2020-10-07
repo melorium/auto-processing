@@ -1522,6 +1522,9 @@ type RunnerApplyRequest struct {
 
 	// Switches to use for nuix-console
 	Switches []string `json:"switches" yaml:"switches"`
+
+	// Update - if the runner should be updated
+	Update bool `json:"update" yaml:"update"`
 }
 
 // RunnerApplyResponse is the output-object for applying a runner-configuration to
@@ -1555,6 +1558,8 @@ type RunnerFailedRequest struct {
 	ID uint `json:"id" yaml:"id"`
 
 	Runner string `json:"runner" yaml:"runner"`
+
+	Exception string `json:"exception" yaml:"exception"`
 }
 
 // RunnerFailedResponse is the output-object for failing a runner by id
@@ -1603,6 +1608,9 @@ type Stage struct {
 
 	// Foreign-key for runners
 	RunnerID uint `json:"runnerID" yaml:"runnerID"`
+
+	// Index for where the stage where indexed in the yaml
+	Index uint `json:"index" yaml:"index"`
 
 	// Process-stage processes data into a Nuix-case
 	Process *Process `json:"process" yaml:"process"`
