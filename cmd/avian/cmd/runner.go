@@ -91,6 +91,7 @@ var runnerDeleteCmd = &cobra.Command{
 var (
 	runnerService *avian.RunnerService
 	forceDelete   bool
+	forceApply    bool
 )
 
 func init() {
@@ -118,6 +119,7 @@ func init() {
 	runnersCmd.AddCommand(runnerStagesCmd)
 	runnersCmd.AddCommand(runnerDeleteCmd)
 	runnerDeleteCmd.Flags().BoolVar(&forceDelete, "force", false, "force deleting an active runner")
+	runnersApplyCmd.Flags().BoolVar(&forceApply, "force", false, "force applying a runner")
 }
 
 func applyRunner(ctx context.Context, path string) error {
@@ -131,6 +133,7 @@ func applyRunner(ctx context.Context, path string) error {
 		return err
 	}
 
+	runner.Update = forceApply
 	resp, err := runnerService.Apply(ctx, runner)
 	if err != nil {
 		return err

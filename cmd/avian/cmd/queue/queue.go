@@ -112,7 +112,7 @@ func (r *run) setActive() error {
 	db := r.queue.db
 
 	// Set runner to active and save to db
-	if err := db.Model(&api.Runner{}).Where("id = ?", r.runner.ID).Update("active", true).Error; err != nil {
+	if err := db.Model(&api.Runner{}).Where("id = ?", r.runner.ID).Update("active", true, "healthy_at", time.Now()).Error; err != nil {
 		return fmt.Errorf("Failed to set runner to active: %v", err)
 	}
 
@@ -243,8 +243,6 @@ func (r *run) handle(err error) {
 		zap.String("licence", r.runner.Licence),
 		zap.Int("workers", int(r.runner.Workers)),
 	)
-
-	db := r.queue.db
 	defer r.close()
 
 	// Check for case-locks
@@ -253,91 +251,10 @@ func (r *run) handle(err error) {
 	}
 
 	logger.Debug("Runner has stopped")
-
-	// bool to check if runner is finished
-	var isFinished = true
-
 	// handle the error
 	if err != nil {
-		isFinished = false // if we got an error - means runner failed
 		logger.Error("Runner failed", zap.String("exception", nuixError(err).Error()))
 	}
-
-	// get the latest runner info
-	runner, err := getRunnerByName(db, r.runner.Name)
-	if err != nil {
-		logger.Fatal("Cannot get runners information from DB - will not be able to handle runner", zap.String("exception", err.Error()))
-		return
-	}
-
-	// check if stages has finished
-	for _, stage := range runner.Stages {
-		if !avian.HasFinished(stage) {
-			isFinished = false
-			logger.Error("Runner failed at stage", zap.Int("stage_id", int(stage.ID)))
-		}
-	}
-
-	// update the runner to db
-	runner.Active = false
-	runner.Finished = isFinished
-	if err := db.Save(&runner).Error; err != nil {
-		logger.Error("Cannot save the updated runner-information to DB", zap.String("exception", err.Error()))
-	}
-
-	if runner.Finished {
-		logger.Info("FINISHED RUNNER")
-	} else {
-		logger.Info("FAILED RUNNER")
-	}
-
-	// Set server to inactive
-	if err := db.Model(&api.Server{}).Where("id = ?", r.server.ID).Update("active", false).Error; err != nil {
-		r.queue.logger.Error("Cannot set server to inactive",
-			zap.String("runner", r.runner.Name),
-			zap.String("server", r.server.Hostname),
-			zap.String("exception", err.Error()),
-		)
-	}
-
-	// Get the latest data for the nms-server
-	var nms api.Nms
-	if err := db.Preload("Licences").First(&nms, r.nms.ID).Error; err != nil {
-		r.queue.logger.Error("Cannot get NMS from DB",
-			zap.String("runner", r.runner.Name),
-			zap.String("nms", r.nms.Address),
-			zap.String("exception", err.Error()),
-		)
-		return
-	}
-
-	// Reset the licences for the nms
-	nms.InUse = nms.InUse - r.runner.Workers
-	for _, lic := range nms.Licences {
-		if lic.Type == r.runner.Licence {
-			lic.InUse = lic.InUse - 1
-			if err := db.Save(&lic).Error; err != nil {
-				r.queue.logger.Error("Cannot update licence-information to DB",
-					zap.String("runner", r.runner.Name),
-					zap.String("nms", r.nms.Address),
-					zap.String("licence", lic.Type),
-					zap.String("exception", err.Error()),
-				)
-				return
-			}
-		}
-	}
-
-	// update the nms to the db
-	if err := db.Save(&nms).Error; err != nil {
-		r.queue.logger.Error("Cannot update nms-information to DB",
-			zap.String("runner", r.runner.Name),
-			zap.String("nms", r.nms.Address),
-			zap.String("licence", r.runner.Licence),
-			zap.String("exception", err.Error()),
-		)
-	}
-
 	return
 }
 
@@ -369,7 +286,7 @@ func getRunners(db *gorm.DB) ([]*api.Runner, error) {
 		Preload("CaseSettings.CompoundCase").
 		Preload("CaseSettings.ReviewCompound").
 		Preload("Switches").
-		Where("active = ? and finished = ?", false, false).
+		Where("active = ? and status = ?", false, avian.StatusWaiting).
 		Find(&runners).Error
 	return runners, err
 }

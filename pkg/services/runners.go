@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -71,9 +72,65 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 	logger.Debug("Validation OK")
 
 	logger.Info("Looking if runner already exists")
-	if !s.db.First(&api.Runner{}, "name = ?", runner.Name).RecordNotFound() {
-		logger.Error("Create a new runner by a unique name", zap.String("exception", "runner already exists"))
-		return nil, fmt.Errorf("runner: %s already exist, create a new runner by a unique name", runner.Name)
+	var fromDB api.Runner
+	fromDB.Name = r.Name
+	if err := getPreloadedRunner(s.db, &fromDB); err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return nil, fmt.Errorf("unknown error: %v", err)
+		}
+	}
+
+	// Create transaction for deleting and creating stages
+	tx := s.db.Begin()
+
+	if fromDB.ID != 0 {
+		if !r.Update {
+			logger.Error("Create a new runner by a unique name or update existing", zap.String("exception", "runner already exists"))
+			return nil, fmt.Errorf("runner: %s already exist, create a new runner by a unique name", runner.Name)
+		}
+
+		if fromDB.Active {
+			logger.Error("Runner is active, cannot update an active runner")
+			return nil, errors.New("cannot update active runner")
+		}
+
+		runner.ID = fromDB.ID
+		runner.CaseSettings.ID = fromDB.CaseSettings.ID
+		runner.CaseSettings.Case.ID = fromDB.CaseSettings.ID
+		runner.CaseSettings.CompoundCase.ID = fromDB.CaseSettings.CompoundCase.ID
+		runner.CaseSettings.ReviewCompound.ID = fromDB.CaseSettings.ReviewCompound.ID
+
+		var stageMap = make(map[uint]api.Stage)
+		for index, stage := range runner.Stages {
+			stageMap[uint(index)] = *stage
+		}
+
+		var newStages []*api.Stage
+		for _, stage := range fromDB.Stages {
+			newStage, ok := stageMap[stage.Index]
+			if ok && avian.StageState(stage) == avian.StatusFinished && avian.Name(&newStage) == avian.Name(stage) {
+				continue
+			}
+
+			if stage.Process != nil {
+				for _, evidence := range stage.Process.EvidenceStore {
+					if err := tx.Delete(&evidence).Error; err != nil {
+						tx.Rollback()
+						logger.Error("Failed to delete evidence", zap.String("exception", err.Error()))
+						return nil, fmt.Errorf("failed to delete evidence: %v", err)
+					}
+				}
+			}
+
+			if err := tx.Delete(&stage).Error; err != nil {
+				tx.Rollback()
+				logger.Error("Failed to delete stage", zap.String("stage", avian.Name(stage)), zap.String("exception", err.Error()))
+				return nil, fmt.Errorf("failed to delete stage: %s - %v", avian.Name(stage), err)
+			}
+
+			newStages = append(newStages, &newStage)
+		}
+		runner.Stages = newStages
 	}
 
 	// Check if the requested server exists
@@ -130,8 +187,16 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 
 	// Add the runner to the db
 	logger.Info("Saving runner to DB")
-	if err := s.db.Save(&runner).Error; err != nil {
+	runner.Status = avian.StatusWaiting
+	if err := tx.Save(&runner).Error; err != nil {
+		tx.Rollback()
 		logger.Error("Cannot to save runner to DB", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("failed to create runner: %v", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		logger.Error("Cannot commit transaction to DB", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("failed to create runner: %v", err)
 	}
 
@@ -570,4 +635,22 @@ func (s RunnerService) resetNms(runner api.Runner) error {
 		return err
 	}
 	return nil
+}
+
+func getPreloadedRunner(db *gorm.DB, runner *api.Runner) error {
+	return db.Preload("Stages.Process.EvidenceStore").
+		Preload("Stages.SearchAndTag.Files").
+		Preload("Stages.Exclude").
+		Preload("Stages.Ocr").
+		Preload("Stages.Reload").
+		Preload("Stages.Populate.Types").
+		Preload("CaseSettings.Case").
+		Preload("CaseSettings.CompoundCase").
+		Preload("CaseSettings.ReviewCompound").
+		Preload("Switches").
+		First(&runner, "name = ?", runner.Name).Error
+}
+
+func mergeRunner(src, dst api.Runner) {
+
 }

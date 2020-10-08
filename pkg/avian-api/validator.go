@@ -42,6 +42,7 @@ func (r *Runner) Validate() error {
 		if stage.Nil() {
 			return fmt.Errorf("Stage: %d - unable to parse what stage it is - check syntax", i+1)
 		}
+		stage.Index = uint(i)
 	}
 	return nil
 }
