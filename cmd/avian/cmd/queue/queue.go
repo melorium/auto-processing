@@ -203,7 +203,7 @@ func (r *run) start() error {
 		client.Close()
 		return fmt.Errorf("Failed to create script-file: %v", err)
 	}
-	defer client.RemoveFile(r.server.NuixPath, scriptName)
+	//defer client.RemoveFile(r.server.NuixPath, scriptName)
 
 	r.queue.logger.Info("STARTING RUNNER",
 		zap.String("runner", r.runner.Name),
@@ -215,24 +215,23 @@ func (r *run) start() error {
 	)
 
 	// format switches for powershell
-	var switches []string
+	var args = []string{
+		"nuix_console.exe",
+		"-Xmx" + r.runner.Xmx,
+		fmt.Sprintf("-Dnuix.registry.servers=%s", r.nms.Address),
+		"-licencesourcetype " + "server",
+		"-licencesourcelocation " + fmt.Sprintf("%s:%d", r.nms.Address, r.nms.Port),
+		"-licencetype " + r.runner.Licence,
+		"-licenceworkers " + fmt.Sprintf("%d", r.runner.Workers),
+		"-signout",
+	}
 	for _, sw := range r.runner.Switches {
-		switches = append(switches, fmt.Sprintf("'%s'", sw.Value))
+		args = append(args, fmt.Sprintf("%s", sw.Value))
 	}
 
-	return client.Run(
-		r.server.NuixPath,
-		"nuix_console.exe",
-		"-Xmx"+r.runner.Xmx,
-		fmt.Sprintf("'-Dnuix.registry.servers=%s'", r.nms.Address),
-		"-licencesourcetype", "server",
-		"-licencesourcelocation", fmt.Sprintf("%s:%d", r.nms.Address, r.nms.Port),
-		"-licencetype", r.runner.Licence,
-		"-licenceworkers", fmt.Sprintf("%d", r.runner.Workers),
-		"-signout",
-		strings.Join(switches, " "),
-		scriptName,
-	)
+	args = append(args, scriptName)
+
+	return client.Run(r.server.NuixPath, args...)
 }
 
 func (r *run) handle(err error) {
@@ -244,11 +243,6 @@ func (r *run) handle(err error) {
 		zap.Int("workers", int(r.runner.Workers)),
 	)
 	defer r.close()
-
-	// Check for case-locks
-	if err := removeCaseLocks(r.client, logger, r.runner.CaseSettings); err != nil {
-		logger.Error("Cannot remove case-locks", zap.String("exception", err.Error()))
-	}
 
 	logger.Debug("Runner has stopped")
 	// handle the error

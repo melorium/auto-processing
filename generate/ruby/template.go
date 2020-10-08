@@ -124,6 +124,7 @@ def open_case(settings)
   rescue => e
     log_error("", 0, "Cannot create/open case, case might already be open", e.backtrace)
     STDERR.puts("problem creating new case, case might already be open: #{e.backtrace}")
+    failed_runner("problem creating new case, case might already be open: #{e.backtrace}")
     exit(false)
   end
   return caze

@@ -197,7 +197,10 @@ func (c *Client) ListGem(nuixPath string) error {
 }
 
 func (c *Client) SetEnv(variable, arg string) error {
-	_, _, err := c.Session.Execute(fmt.Sprintf("$Env:%s = '%s'", variable, arg))
+	if _, _, err := c.Session.Execute(fmt.Sprintf("$Env:%s = '%s'", variable, arg)); err != nil {
+		return err
+	}
+	_, _, err := c.Session.Execute(fmt.Sprintf("Set-Variable -Name '%s' -Value '%s'", variable, arg))
 	return err
 }
 
@@ -246,8 +249,13 @@ func (c *Client) Run(path string, args ...string) error {
 		return err
 	}
 
-	cmd := strings.Join(args, " ")
-	_, _, err := c.Session.Execute(".\\" + cmd)
+	var newArgs string
+	for _, arg := range args[1:] {
+		newArgs += fmt.Sprintf("'%s', ", arg)
+	}
+	newArgs = strings.TrimSuffix(newArgs, ", ")
+
+	_, _, err := c.Session.Execute(fmt.Sprintf("Start-Process -FilePath '.\\%s' -ArgumentList %s -NoNewWindow", args[0], newArgs))
 	return err
 }
 
