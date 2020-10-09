@@ -9,6 +9,7 @@ import (
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	avian "github.com/avian-digital-forensics/auto-processing/pkg/avian-client"
+	"github.com/avian-digital-forensics/auto-processing/pkg/logging"
 	"github.com/avian-digital-forensics/auto-processing/pkg/powershell"
 	ps "github.com/simonjanss/go-powershell"
 
@@ -19,14 +20,19 @@ import (
 )
 
 type RunnerService struct {
-	DB      *gorm.DB
-	shell   ps.Shell
-	logger  *zap.Logger
-	logPath string
+	DB         *gorm.DB
+	shell      ps.Shell
+	logger     *zap.Logger
+	logHandler logging.Service
 }
 
-func NewRunnerService(db *gorm.DB, shell ps.Shell, logger *zap.Logger, logPath string) RunnerService {
-	return RunnerService{DB: db, shell: shell, logger: logger, logPath: logPath}
+func NewRunnerService(db *gorm.DB, shell ps.Shell, logger *zap.Logger, logHandler logging.Service) RunnerService {
+	return RunnerService{
+		DB:         db,
+		shell:      shell,
+		logger:     logger,
+		logHandler: logHandler,
+	}
 }
 
 // Apply the runner to backend
@@ -501,8 +507,7 @@ func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*ap
 
 // LogItem logs an item that has been processed
 func (s RunnerService) LogItem(ctx context.Context, r api.LogItemRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s-item.log", s.logPath, r.Runner)
-	logger, err := s.getLogger(logName)
+	logger, err := s.logHandler.Get(r.Runner + "-item.log")
 	if err != nil {
 		return nil, err
 	}
@@ -529,8 +534,11 @@ func (s RunnerService) LogItem(ctx context.Context, r api.LogItemRequest) (*api.
 }
 
 func (s RunnerService) LogDebug(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
-	logger, err := s.getLogger(logName)
+	logger, err := s.logHandler.Get(r.Runner + "-runner.log")
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +553,7 @@ func (s RunnerService) LogDebug(ctx context.Context, r api.LogRequest) (*api.Log
 }
 
 func (s RunnerService) LogInfo(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
-	logger, err := s.getLogger(logName)
+	logger, err := s.logHandler.Get(r.Runner + "-runner.log")
 	if err != nil {
 		return nil, err
 	}
@@ -561,8 +568,7 @@ func (s RunnerService) LogInfo(ctx context.Context, r api.LogRequest) (*api.LogR
 }
 
 func (s RunnerService) LogError(ctx context.Context, r api.LogRequest) (*api.LogResponse, error) {
-	logName := fmt.Sprintf("%s%s-runner.log", s.logPath, r.Runner)
-	logger, err := s.getLogger(logName)
+	logger, err := s.logHandler.Get(r.Runner + "-runner.log")
 	if err != nil {
 		return nil, err
 	}

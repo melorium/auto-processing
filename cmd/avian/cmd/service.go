@@ -26,6 +26,7 @@ import (
 	"github.com/avian-digital-forensics/auto-processing/cmd/avian/cmd/queue"
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	"github.com/avian-digital-forensics/auto-processing/pkg/datastore/tables"
+	"github.com/avian-digital-forensics/auto-processing/pkg/logging"
 	"github.com/avian-digital-forensics/auto-processing/pkg/services"
 	"github.com/avian-digital-forensics/auto-processing/pkg/utils"
 	"github.com/gorilla/handlers"
@@ -108,6 +109,15 @@ func run() error {
 
 	logger.Debug("Starting service", zap.Bool("debug", debug), zap.String("db", dbName), zap.String("log-path", logPath))
 
+	logHandler := logging.New(logPath)
+	go func() {
+		cleanAt := time.Hour * 1
+		for {
+			time.Sleep(cleanAt)
+			logHandler.Clean(time.Now().Add(-cleanAt))
+		}
+	}()
+
 	// Set the server-address for HTTP
 	if os.Getenv("AVIAN_ADDRESS") == "" {
 		ip, err := utils.GetIPAddress()
@@ -171,7 +181,7 @@ func run() error {
 
 	// Register our services
 	logger.Debug("Registering our oto http-services")
-	runnersvc := services.NewRunnerService(db, shell, logger, logPath)
+	runnersvc := services.NewRunnerService(db, shell, logger, logHandler)
 	api.RegisterRunnerService(server, runnersvc)
 	api.RegisterServerService(server, services.NewServerService(db, shell, logger))
 	api.RegisterNmsService(server, services.NewNmsService(db, logger))
