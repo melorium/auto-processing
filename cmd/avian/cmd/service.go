@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/avian-digital-forensics/auto-processing/cmd/avian/cmd/heartbeat"
 	"github.com/avian-digital-forensics/auto-processing/cmd/avian/cmd/queue"
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	"github.com/avian-digital-forensics/auto-processing/pkg/datastore/tables"
@@ -170,9 +171,14 @@ func run() error {
 
 	// Register our services
 	logger.Debug("Registering our oto http-services")
+	runnersvc := services.NewRunnerService(db, shell, logger, logPath)
+	api.RegisterRunnerService(server, runnersvc)
 	api.RegisterServerService(server, services.NewServerService(db, shell, logger))
 	api.RegisterNmsService(server, services.NewNmsService(db, logger))
-	api.RegisterRunnerService(server, services.NewRunnerService(db, shell, logger, logPath))
+
+	logger.Debug("Starting heartbeat-service")
+	heartbeat := heartbeat.New(runnersvc, logger)
+	go heartbeat.Beat()
 
 	// Handle our oto-server @ /oto
 	logger.Debug("Handle oto @ /oto/")

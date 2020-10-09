@@ -7,6 +7,7 @@ const (
 	StatusRunning  int64 = 1
 	StatusFailed   int64 = 2
 	StatusFinished int64 = 3
+	StatusTimeout        = 4
 )
 
 func Status(status int64) string { return getStatus(status) }
@@ -23,6 +24,9 @@ func getStatus(status int64) string {
 	}
 	if status == StatusFinished {
 		return "Finished"
+	}
+	if status == StatusTimeout {
+		return "Timeout"
 	}
 	return "Unknown"
 }

@@ -38,6 +38,8 @@ type RunnerService interface {
 	FinishStage(context.Context, StageRequest) (*StageResponse, error)
 	// Get returns the requested Runner
 	Get(context.Context, RunnerGetRequest) (*RunnerGetResponse, error)
+	// Heartbeat sends a heartbeat for the api
+	Heartbeat(context.Context, RunnerStartRequest) (*RunnerStartResponse, error)
 	// List returns the runners from the backend
 	List(context.Context, RunnerListRequest) (*RunnerListResponse, error)
 	// LogDebug logs a debug-message
@@ -148,6 +150,7 @@ func RegisterRunnerService(server *otohttp.Server, runnerService RunnerService) 
 	server.Register("RunnerService", "Finish", handler.handleFinish)
 	server.Register("RunnerService", "FinishStage", handler.handleFinishStage)
 	server.Register("RunnerService", "Get", handler.handleGet)
+	server.Register("RunnerService", "Heartbeat", handler.handleHeartbeat)
 	server.Register("RunnerService", "List", handler.handleList)
 	server.Register("RunnerService", "LogDebug", handler.handleLogDebug)
 	server.Register("RunnerService", "LogError", handler.handleLogError)
@@ -272,6 +275,24 @@ func (s *runnerServiceServer) handleGet(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	response, err := s.runnerService.Get(r.Context(), request)
+	if err != nil {
+		log.Println("TODO: oto service error:", err)
+		s.server.OnErr(w, r, err)
+		return
+	}
+	if err := otohttp.Encode(w, r, http.StatusOK, response); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+}
+
+func (s *runnerServiceServer) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
+	var request RunnerStartRequest
+	if err := otohttp.Decode(r, &request); err != nil {
+		s.server.OnErr(w, r, err)
+		return
+	}
+	response, err := s.runnerService.Heartbeat(r.Context(), request)
 	if err != nil {
 		log.Println("TODO: oto service error:", err)
 		s.server.OnErr(w, r, err)

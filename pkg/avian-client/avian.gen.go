@@ -617,6 +617,61 @@ func (s *RunnerService) Get(ctx context.Context, r RunnerGetRequest) (*RunnerGet
 	return &response.RunnerGetResponse, nil
 }
 
+// Heartbeat sends a heartbeat for the api
+func (s *RunnerService) Heartbeat(ctx context.Context, r RunnerStartRequest) (*RunnerStartResponse, error) {
+	requestBodyBytes, err := json.Marshal(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Heartbeat: marshal RunnerStartRequest")
+	}
+	signature, err := generateSignature(requestBodyBytes, s.client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Heartbeat: generate signature RunnerStartRequest")
+	}
+	url := s.client.RemoteHost + "RunnerService.Heartbeat"
+	s.client.Debug(fmt.Sprintf("POST %s", url))
+	s.client.Debug(fmt.Sprintf(">> %s", string(requestBodyBytes)))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBodyBytes))
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Heartbeat: NewRequest")
+	}
+	req.Header.Set("X-API-SIGNATURE", signature)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req = req.WithContext(ctx)
+	resp, err := s.client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Heartbeat")
+	}
+	defer resp.Body.Close()
+	var response struct {
+		RunnerStartResponse
+		Error string
+	}
+	var bodyReader io.Reader = resp.Body
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		decodedBody, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "RunnerService.Heartbeat: new gzip reader")
+		}
+		defer decodedBody.Close()
+		bodyReader = decodedBody
+	}
+	respBodyBytes, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "RunnerService.Heartbeat: read response body")
+	}
+	if err := json.Unmarshal(respBodyBytes, &response); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("RunnerService.Heartbeat: (%d) %v", resp.StatusCode, string(respBodyBytes))
+		}
+		return nil, err
+	}
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+	return &response.RunnerStartResponse, nil
+}
+
 // List returns the runners from the backend
 func (s *RunnerService) List(ctx context.Context, r RunnerListRequest) (*RunnerListResponse, error) {
 	requestBodyBytes, err := json.Marshal(r)

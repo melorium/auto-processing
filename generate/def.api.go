@@ -238,6 +238,9 @@ type RunnerService interface {
 
 	// LogError logs an error-message
 	LogError(LogRequest) LogResponse
+
+	// Heartbeat sends a heartbeat for the api
+	Heartbeat(RunnerStartRequest) RunnerStartResponse
 }
 
 // Runner holds the information for a specific runner

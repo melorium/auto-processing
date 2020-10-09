@@ -19,14 +19,14 @@ import (
 )
 
 type RunnerService struct {
-	db      *gorm.DB
+	DB      *gorm.DB
 	shell   ps.Shell
 	logger  *zap.Logger
 	logPath string
 }
 
 func NewRunnerService(db *gorm.DB, shell ps.Shell, logger *zap.Logger, logPath string) RunnerService {
-	return RunnerService{db: db, shell: shell, logger: logger, logPath: logPath}
+	return RunnerService{DB: db, shell: shell, logger: logger, logPath: logPath}
 }
 
 // Apply the runner to backend
@@ -74,14 +74,14 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 	logger.Info("Looking if runner already exists")
 	var fromDB api.Runner
 	fromDB.Name = r.Name
-	if err := getPreloadedRunner(s.db, &fromDB); err != nil {
+	if err := getPreloadedRunner(s.DB, &fromDB); err != nil {
 		if !gorm.IsRecordNotFoundError(err) {
 			return nil, fmt.Errorf("unknown error: %v", err)
 		}
 	}
 
 	// Create transaction for deleting and creating stages
-	tx := s.db.Begin()
+	tx := s.DB.Begin()
 
 	if fromDB.ID != 0 {
 		if !r.Update {
@@ -136,14 +136,14 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 	// Check if the requested server exists
 	var server api.Server
 	logger.Info("Looking if server exists")
-	if s.db.First(&server, "hostname = ?", runner.Hostname).RecordNotFound() {
+	if s.DB.First(&server, "hostname = ?", runner.Hostname).RecordNotFound() {
 		logger.Error("Requested server for runner does not exist", zap.String("exception", "server not found"))
 		return nil, fmt.Errorf("server: %s doesn't exist in the backend, list existing servers by command: 'avian servers list'", runner.Hostname)
 	}
 
 	// Check if the requested nms exists
 	logger.Info("Looking if NMS exist")
-	if s.db.First(&api.Nms{}, "address = ?", runner.Nms).RecordNotFound() {
+	if s.DB.First(&api.Nms{}, "address = ?", runner.Nms).RecordNotFound() {
 		logger.Error("Requested NMS for runner does not exist", zap.String("exception", "nms not found"))
 		return nil, fmt.Errorf("nms: %s doesn't exist in the backend, list existing nm-servers by command: 'avian nms list'", runner.Nms)
 	}
@@ -207,7 +207,7 @@ func (s RunnerService) Apply(ctx context.Context, r api.RunnerApplyRequest) (*ap
 func (s RunnerService) List(ctx context.Context, r api.RunnerListRequest) (*api.RunnerListResponse, error) {
 	s.logger.Debug("Getting runners-list")
 	var runners []api.Runner
-	err := s.db.Preload("Stages.Process").
+	err := s.DB.Preload("Stages.Process").
 		Preload("Stages.SearchAndTag").
 		Preload("Stages.Exclude").
 		Preload("Stages.Ocr").
@@ -225,7 +225,7 @@ func (s RunnerService) List(ctx context.Context, r api.RunnerListRequest) (*api.
 func (s RunnerService) Get(ctx context.Context, r api.RunnerGetRequest) (*api.RunnerGetResponse, error) {
 	s.logger.Debug("Getting runner", zap.String("runner", r.Name))
 	var runner api.Runner
-	err := s.db.Preload("Stages.Process").
+	err := s.DB.Preload("Stages.Process").
 		Preload("Stages.SearchAndTag").
 		Preload("Stages.Exclude").
 		Preload("Stages.Ocr").
@@ -252,7 +252,7 @@ func (s RunnerService) Delete(ctx context.Context, r api.RunnerDeleteRequest) (*
 	}
 
 	// start transaction for the delete
-	tx := s.db.Begin()
+	tx := s.DB.Begin()
 
 	var runner api.Runner
 	err := tx.Preload("Switches").
@@ -331,14 +331,14 @@ func (s RunnerService) Start(ctx context.Context, r api.RunnerStartRequest) (*ap
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
 	logger.Info("Starting runner")
 	var runner api.Runner
-	if err := s.db.First(&runner, r.ID).Error; err != nil {
+	if err := s.DB.First(&runner, r.ID).Error; err != nil {
 		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot get runner: %v", err)
 	}
 	now := time.Now()
 	runner.Status = avian.StatusRunning
 	runner.HealthyAt = &now
-	if err := s.db.Save(&runner).Error; err != nil {
+	if err := s.DB.Save(&runner).Error; err != nil {
 		logger.Error("Cannot save the started runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot save runner: %v", err)
 	}
@@ -350,24 +350,24 @@ func (s RunnerService) Failed(ctx context.Context, r api.RunnerFailedRequest) (*
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
 	logger.Info("Failed runner")
 	var runner api.Runner
-	if err := s.db.First(&runner, r.ID).Error; err != nil {
+	if err := s.DB.First(&runner, r.ID).Error; err != nil {
 		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot get runner: %v", err)
 	}
 	runner.Status = avian.StatusFailed
 	runner.Active = false
-	if err := s.db.Save(&runner).Error; err != nil {
+	if err := s.DB.Save(&runner).Error; err != nil {
 		logger.Error("Cannot save the failed runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot save runner: %v", err)
 	}
 
 	// Set servers activity
-	if err := s.setServerActivity(runner, false); err != nil {
+	if err := s.SetServerActivity(runner, false); err != nil {
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
 	}
 
 	// update nms information
-	if err := s.resetNms(runner); err != nil {
+	if err := s.ResetNms(runner); err != nil {
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
 	}
 
@@ -383,24 +383,24 @@ func (s RunnerService) Finish(ctx context.Context, r api.RunnerFinishRequest) (*
 	logger.Info("Finished runner")
 
 	var runner api.Runner
-	if err := s.db.First(&runner, r.ID).Error; err != nil {
+	if err := s.DB.First(&runner, r.ID).Error; err != nil {
 		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot get runner: %v", err)
 	}
 	runner.Status = avian.StatusFinished
 	runner.Active = false
-	if err := s.db.Save(&runner).Error; err != nil {
+	if err := s.DB.Save(&runner).Error; err != nil {
 		logger.Error("Cannot save the failed runner", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot save runner: %v", err)
 	}
 
 	// Set servers activity
-	if err := s.setServerActivity(runner, false); err != nil {
+	if err := s.SetServerActivity(runner, false); err != nil {
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
 	}
 
 	// update nms information
-	if err := s.resetNms(runner); err != nil {
+	if err := s.ResetNms(runner); err != nil {
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
 	}
 
@@ -411,11 +411,21 @@ func (s RunnerService) Finish(ctx context.Context, r api.RunnerFinishRequest) (*
 	return &api.RunnerFinishResponse{}, nil
 }
 
+func (s RunnerService) Heartbeat(ctx context.Context, r api.RunnerStartRequest) (*api.RunnerStartResponse, error) {
+	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
+	logger.Debug("Retrieved heartbeat from runner")
+	if err := s.DB.Model(&api.Runner{}).Where("id = ?", r.ID).Update("healthy_at", time.Now()).Error; err != nil {
+		logger.Error("Failed to update healthy_at", zap.String("exception", err.Error()))
+		return nil, fmt.Errorf("Failed to update healthy_at: %v", err)
+	}
+	return &api.RunnerStartResponse{}, nil
+}
+
 func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api.StageResponse, error) {
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
 	logger.Debug("StartStage request")
 	var stage api.Stage
-	if err := s.db.Preload("Process").
+	if err := s.DB.Preload("Process").
 		Preload("SearchAndTag").
 		Preload("Exclude").
 		Preload("Reload").
@@ -428,7 +438,7 @@ func (s RunnerService) StartStage(ctx context.Context, r api.StageRequest) (*api
 
 	logger.Debug("Set stage-status to running", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusRunning(&stage)
-	if err := s.db.Save(&stage).Error; err != nil {
+	if err := s.DB.Save(&stage).Error; err != nil {
 		logger.Error("Cannot set stage-status to running", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("failed to update stage to running: %v", err)
 	}
@@ -441,7 +451,7 @@ func (s RunnerService) FailedStage(ctx context.Context, r api.StageRequest) (*ap
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
 	logger.Debug("FailedStage request")
 	var stage api.Stage
-	if err := s.db.Preload("Process").
+	if err := s.DB.Preload("Process").
 		Preload("SearchAndTag").
 		Preload("Exclude").
 		Preload("Reload").
@@ -454,7 +464,7 @@ func (s RunnerService) FailedStage(ctx context.Context, r api.StageRequest) (*ap
 
 	logger.Debug("Set stage-status to failed", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusFailed(&stage)
-	if err := s.db.Save(&stage).Error; err != nil {
+	if err := s.DB.Save(&stage).Error; err != nil {
 		logger.Error("Cannot set stage-status to failed", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("cannot to update stage to failed: %v", err)
 	}
@@ -467,7 +477,7 @@ func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*ap
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("stage_id", int(r.StageID)))
 	logger.Debug("FinishStage request")
 	var stage api.Stage
-	if err := s.db.Preload("Process").
+	if err := s.DB.Preload("Process").
 		Preload("SearchAndTag").
 		Preload("Exclude").
 		Preload("Reload").
@@ -480,7 +490,7 @@ func (s RunnerService) FinishStage(ctx context.Context, r api.StageRequest) (*ap
 
 	logger.Debug("Set stage-status to finished", zap.Int("stage_id", int(r.StageID)))
 	avian.SetStatusFinished(&stage)
-	if err := s.db.Save(&stage).Error; err != nil {
+	if err := s.DB.Save(&stage).Error; err != nil {
 		logger.Error("Cannot set stage-status to finished", zap.String("exception", err.Error()))
 		return nil, fmt.Errorf("failed to update stage to running: %v", err)
 	}
@@ -592,8 +602,8 @@ func (s RunnerService) getLogger(logName string) (*zap.Logger, error) {
 	return logger, nil
 }
 
-func (s RunnerService) setServerActivity(runner api.Runner, active bool) error {
-	if err := s.db.Model(&api.Server{}).Where("hostname = ?", runner.Hostname).Update("active", active).Error; err != nil {
+func (s RunnerService) SetServerActivity(runner api.Runner, active bool) error {
+	if err := s.DB.Model(&api.Server{}).Where("hostname = ?", runner.Hostname).Update("active", active).Error; err != nil {
 		s.logger.Error("Cannot set servers activity",
 			zap.String("runner", runner.Name),
 			zap.String("server", runner.Hostname),
@@ -604,10 +614,10 @@ func (s RunnerService) setServerActivity(runner api.Runner, active bool) error {
 	return nil
 }
 
-func (s RunnerService) resetNms(runner api.Runner) error {
+func (s RunnerService) ResetNms(runner api.Runner) error {
 	// Get the latest data for the nms-server
 	var nms api.Nms
-	if err := s.db.Preload("Licences").First(&nms, "address = ?", runner.Nms).Error; err != nil {
+	if err := s.DB.Preload("Licences").First(&nms, "address = ?", runner.Nms).Error; err != nil {
 		s.logger.Error("Cannot get NMS from DB",
 			zap.String("runner", runner.Name),
 			zap.String("nms", runner.Nms),
@@ -621,7 +631,7 @@ func (s RunnerService) resetNms(runner api.Runner) error {
 	for _, lic := range nms.Licences {
 		if lic.Type == runner.Licence {
 			lic.InUse = lic.InUse - 1
-			if err := s.db.Save(&lic).Error; err != nil {
+			if err := s.DB.Save(&lic).Error; err != nil {
 				s.logger.Error("Cannot update licence-information to DB",
 					zap.String("runner", runner.Name),
 					zap.String("nms", runner.Nms),
@@ -634,7 +644,7 @@ func (s RunnerService) resetNms(runner api.Runner) error {
 	}
 
 	// update the nms to the db
-	if err := s.db.Save(&nms).Error; err != nil {
+	if err := s.DB.Save(&nms).Error; err != nil {
 		s.logger.Error("Cannot update nms-information to DB",
 			zap.String("runner", runner.Name),
 			zap.String("nms", runner.Nms),
@@ -667,7 +677,7 @@ func mergeRunner(src, dst api.Runner) {
 func (s RunnerService) RemoveScript(runner api.Runner) error {
 	logger := s.logger.With(zap.String("runner", runner.Name))
 	var server api.Server
-	if err := s.db.First(&server, "hostname = ?", runner.Hostname).Error; err != nil {
+	if err := s.DB.First(&server, "hostname = ?", runner.Hostname).Error; err != nil {
 		logger.Error("Failed to retrive server from db", zap.String("server", runner.Hostname), zap.String("exception", err.Error()))
 		return fmt.Errorf("Failed to retrive server from db: %s - %v", runner.Hostname, err.Error())
 	}

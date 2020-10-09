@@ -107,6 +107,13 @@ def log_error(stage, stage_id, message, exception)
   })
 end
 
+Thread.new {
+  loop do
+    sleep 90
+    send_request('Heartbeat', {runner: '<%= runner.Name %>', id: <%= runner.ID %>})
+  end
+}
+
 # start the runner
 start_runner
 

@@ -112,7 +112,10 @@ func (r *run) setActive() error {
 	db := r.queue.db
 
 	// Set runner to active and save to db
-	if err := db.Model(&api.Runner{}).Where("id = ?", r.runner.ID).Update("active", true, "healthy_at", time.Now()).Error; err != nil {
+	now := time.Now()
+	r.runner.HealthyAt = &now
+	r.runner.Active = true
+	if err := db.Save(&r.runner).Error; err != nil {
 		return fmt.Errorf("Failed to set runner to active: %v", err)
 	}
 
