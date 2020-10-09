@@ -265,7 +265,7 @@ func (s RunnerService) Delete(ctx context.Context, r api.RunnerDeleteRequest) (*
 		Preload("CaseSettings.Case").
 		Preload("CaseSettings.CompoundCase").
 		Preload("CaseSettings.ReviewCompound").
-		First(&runner, "name = ?", r.Name).Error
+		First(&runner, "name = ? OR id = ?", r.Name, r.Name).Error
 	if err != nil {
 		tx.Rollback()
 		s.logger.Error("Cannot get runner", zap.String("runner", r.Name), zap.String("exception", err.Error()))
