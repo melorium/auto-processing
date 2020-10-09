@@ -371,12 +371,17 @@ func (s RunnerService) Failed(ctx context.Context, r api.RunnerFailedRequest) (*
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
 	}
 
+	if err := s.RemoveScript(runner); err != nil {
+		return nil, err
+	}
+
 	return &api.RunnerFailedResponse{}, nil
 }
 
 func (s RunnerService) Finish(ctx context.Context, r api.RunnerFinishRequest) (*api.RunnerFinishResponse, error) {
 	logger := s.logger.With(zap.String("runner", r.Runner), zap.Int("runner_id", int(r.ID)))
 	logger.Info("Finished runner")
+
 	var runner api.Runner
 	if err := s.db.First(&runner, r.ID).Error; err != nil {
 		logger.Error("Cannot get runner", zap.String("exception", err.Error()))
@@ -397,6 +402,10 @@ func (s RunnerService) Finish(ctx context.Context, r api.RunnerFinishRequest) (*
 	// update nms information
 	if err := s.resetNms(runner); err != nil {
 		return nil, fmt.Errorf("Failed to set servers activity: %v", err)
+	}
+
+	if err := s.RemoveScript(runner); err != nil {
+		return nil, err
 	}
 
 	return &api.RunnerFinishResponse{}, nil
@@ -653,4 +662,43 @@ func getPreloadedRunner(db *gorm.DB, runner *api.Runner) error {
 
 func mergeRunner(src, dst api.Runner) {
 
+}
+
+func (s RunnerService) RemoveScript(runner api.Runner) error {
+	logger := s.logger.With(zap.String("runner", runner.Name))
+	var server api.Server
+	if err := s.db.First(&server, "hostname = ?", runner.Hostname).Error; err != nil {
+		logger.Error("Failed to retrive server from db", zap.String("server", runner.Hostname), zap.String("exception", err.Error()))
+		return fmt.Errorf("Failed to retrive server from db: %s - %v", runner.Hostname, err.Error())
+	}
+
+	// set options for the connection
+	var opts powershell.Options
+	opts.Host = server.Hostname
+	if len(server.Username) != 0 {
+		logger.Debug("Adding credentials for powershell-session")
+		opts.Username = server.Username
+		opts.Password = server.Password
+	}
+
+	// create the client
+	client, err := powershell.NewClient(s.shell, opts)
+	if err != nil {
+		logger.Error("Failed to create remote-client for powershell", zap.String("exception", err.Error()))
+		return fmt.Errorf("failed to create remote-client for powershell: %v", err)
+	}
+
+	// close the client on exit
+	defer client.Close()
+
+	var scriptName = fmt.Sprintf("%s\\%s.gen.rb", server.NuixPath, runner.Name)
+	if err := client.RemoveItem(scriptName); err != nil {
+		logger.Error("Failed to remove script-file in ps-session",
+			zap.String("server", runner.Hostname),
+			zap.String("nuix_path", server.NuixPath),
+			zap.String("exception", err.Error()),
+		)
+		return fmt.Errorf("Failed to set nuix-path in ps-session: %s - %v", runner.Hostname, err.Error())
+	}
+	return nil
 }
