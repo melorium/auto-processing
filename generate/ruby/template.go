@@ -12,13 +12,8 @@ require 'time'
 STDOUT.puts('STARTING RUNNER')
 
 # create http-client to the server
-begin
-  @url = URI('<%= remoteAddress %>')
-  @http = Net::HTTP.new(@url.host, @url.port);
-rescue => e
-  STDERR.puts("no connection to avian-service : #{e}")
-  exit(false)
-end
+@url = URI('<%= remoteAddress %>')
+@http = Net::HTTP.new(@url.host, @url.port);
 
 def send_request(method, body)
   begin
@@ -30,6 +25,11 @@ def send_request(method, body)
 
   rescue => e
     # Handle the exception
+    if method == 'Start'
+      STDOUT.puts('FINISHED RUNNER')
+      STDERR.puts("no connection to avian-service : #{e}")
+      exit(false)
+    end
     STDERR.puts("failed to send request to: #{method} case: #{e}")
   end
 end
@@ -132,6 +132,7 @@ def open_case(settings)
     log_error("", 0, "Cannot create/open case, case might already be open", e.backtrace)
     STDERR.puts("problem creating new case, case might already be open: #{e.backtrace}")
     failed_runner("problem creating new case, case might already be open: #{e.backtrace}")
+    STDOUT.puts('FINISHED RUNNER')
     exit(false)
   end
   return caze
@@ -251,6 +252,7 @@ begin
 rescue => e
   # handle exception
   log_error('', 0, 'Cannot initialize processor', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("error initializing processor #{e}")
   tear_down(single_case, compound_case, review_compound)
   failed_runner(e)
@@ -284,6 +286,7 @@ rescue => e
   failed(<%= getProcessingStageID(runner) %>)
   tear_down(single_case, compound_case, review_compound)
   log_error('Process', <%= getProcessingStageID(runner) %>, 'Processing failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Processing failed: #{e}")
   failed_runner(e)
   exit(false)
@@ -337,6 +340,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   failed_runner(e)
   exit(false)
@@ -373,6 +377,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   failed_runner(e)
   exit(false)
@@ -441,6 +446,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   failed_runner(e)
   exit(false)
@@ -519,6 +525,7 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   failed_runner(e)
   exit(false)
@@ -585,8 +592,10 @@ rescue => e
   tear_down(single_case, nil, nil)
   <% } %>
   log_error('<%= stageName(s) %>', <%= s.ID %>, 'Failed', e)
+  STDOUT.puts('FINISHED RUNNER')
   STDERR.puts("Failed to run stage <%= stageName(s) %> id <%= s.ID %> : #{e}")
   failed_runner(e)
   exit(false)
 end<% } %><% } %><% } %><% } %>
+STDOUT.puts('FINISHED RUNNER')
 finish_runner`
