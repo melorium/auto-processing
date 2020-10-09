@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	api "github.com/avian-digital-forensics/auto-processing/pkg/avian-api"
 	"go.uber.org/zap"
@@ -29,6 +30,11 @@ func (s NmsService) Apply(ctx context.Context, r api.NmsApplyRequests) (*api.Nms
 	// and append them to the response
 	var resp api.NmsApplyResponse
 	for _, nms := range r.Nms {
+		// Test the http-connection to the NMS
+		if _, err := http.Get(fmt.Sprintf("https://%s:%d", nms.Address, nms.Port)); err != nil {
+			return nil, fmt.Errorf("Cannot establish connection to NMS with address: %s:%d - %v", nms.Address, nms.Port, err)
+		}
+
 		s.logger.Debug("Checking if nms already exists", zap.String("nms", nms.Address))
 		// Check if the requested NMS exists (in that case update it)
 		var newNms api.Nms
