@@ -7,6 +7,7 @@
 * List NM-servers
 * List licences
 * Add runner for automated workflow
+* Update a runner
 * List runners
 * List stages for runners
 
@@ -23,7 +24,7 @@ avian service
 
 Add servers to the backend
 ```bash
-avian servers apply `servers.yml`
+avian servers apply servers.yml
 ```
 
 Check out the server in the list
@@ -35,7 +36,7 @@ avian servers list
 
 Add NMS to the backend
 ```bash
-avian nms apply `nms.yml`
+avian nms apply nms.yml
 ```
 
 List to see our NMS
@@ -45,14 +46,20 @@ avian nms list
 
 List our licences for the specified NMS
 ```bash
-avian nms licences `<nms_address>`
+avian nms licences `nms_address`
 ```
 
 ## Handle the Runners
 
 Add runner to the backend
 ```bash
-avian runners apply `runner.yml`
+avian runners apply runner.yml
+```
+
+Update a runner-configuration to backend
+This will also set the status to Waiting
+```bash
+avian runners apply runner.yml --force
 ```
 
 List our runners
@@ -62,10 +69,10 @@ avian runners list
 
 List our stages for the specified Runner
 ```bash
-avian runners stages `<runner_name>`
+avian runners stages `runner_name`
 ```
 
 Delete a runner (use `--force` argument if runner is active)
 ```bash
-avian runners delete `<runner_name>`
+avian runners delete `runner_name/runner_id`
 ```
