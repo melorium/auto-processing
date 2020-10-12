@@ -1,16 +1,56 @@
-##########################
-# Filebeat version 7.9.x #
-##########################
-
 nuix.logdir: C:\Users\*\AppData\Local\Nuix
 automation.logdir: C:\log
+automation.logdir2: C:\log1
 
 filebeat.inputs:
+
 - type: log
   paths:
      - ${nuix.logdir}\Logs\*\nuix.log
-  tags: ["NUIX-MAIN-LOG"]
+  include_lines: ['-\s*S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*R\s*U\s*N\s*N\s*E\s*R']
+  tags: ["NUIX-RUNNER-START" ,"CASE-TRIGGER"]
 
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+  include_lines: ['-\s*F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R']
+  tags: ["NUIX-RUNNER-END" ,"CASE-TRIGGER"]
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+  include_lines: ['-\s*i\s*t\s*e\s*m\s*p\s*r\s*o\s*c\s*e\s*s\s*s\s*e\s*d\s*:']
+  tags: ["NUIX-MAIN-LOG-INFO" ,"AUTOMATION-CASE-ITEM"]
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+  include_lines: ['ERROR']
+  tags: ["NUIX-MAIN-LOG-ERROR"]
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+
+  include_lines: ['WARN']
+  tags: ["NUIX-MAIN-LOG-WARN"]
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\nuix.log
+  include_lines: ['INFO']
+  exclude_lines: ['-\s*S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*R\s*U\s*N\s*N\s*E\s*R']
+  exclude_lines: ['-\s*F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R']
+  exclude_lines: ['-\s*i\s*t\s*e\s*m\s*p\s*r\s*o\s*c\s*e\s*s\s*s\s*e\s*d\s*:']
+  tags: ["NUIX-MAIN-LOG-INFO"]
   multiline.type: pattern
   multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
   multiline.negate: false
@@ -19,8 +59,28 @@ filebeat.inputs:
 - type: log
   paths:
      - ${nuix.logdir}\Logs\*\*\*\nuix.log
-  tags: ["NUIX-WORKER-LOG"]
+  include_lines: ['ERROR']
+  tags: ["NUIX-WORKER-LOG-ERROR"]
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
 
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\*\*\nuix.log
+  include_lines: ['WARN ']
+  tags: ["NUIX-WORKER-LOG-WARN"]
+  multiline.type: pattern
+  multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
+  multiline.negate: false
+  multiline.match: after
+
+- type: log
+  paths:
+     - ${nuix.logdir}\Logs\*\*\*\nuix.log
+  include_lines: ['INFO']
+  tags: ["NUIX-WORKER-LOG-INFO"]
   multiline.type: pattern
   multiline.pattern: '^[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:|^com|^java'
   multiline.negate: false
@@ -31,16 +91,66 @@ filebeat.inputs:
      - ${nuix.logdir}\Logs\*\*\*\ocr.log
   tags: ["OCR-LOG"]
 
+
 - type: log
   paths:
      - ${nuix.logdir}\Logs\*\*\*\abby*.log
   tags: ["ABBY-WORKER-LOG"]
 
 - type: log
-  enabled: true
   paths:
-    - ${automation.logdir}\service.log
-    - ${automation.logdir}\*-runner.log
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['-\s*i\s*t\s*e\s*m\s*p\s*r\s*o\s*c\s*e\s*s\s*s\s*e\s*d\s*:']
+  tags: ["AUTOMATION" ,"AUTOMATION-CASE-ITEM"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*R\s*U\s*N\s*N\s*E\s*R']
+  tags: ["AUTOMATION", "AUTOMATION-STARTING-RUNNER"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*S\s*T\s*A\s*G\s*E']
+  tags: ["AUTOMATION", "AUTOMATION-STARTING-STAGE"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['F\s*A\s*I\s*L\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R']
+  tags: ["AUTOMATION", "AUTOMATION-FAILED-RUNNER"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R']
+  tags: ["AUTOMATION", "AUTOMATION-FINISHED-RUNNER"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['F\s*A\s*I\s*L\s*E\s*D\s*S\s*T\s*A\s*G\s*E']
+  tags: ["AUTOMATION", "AUTOMATION-FAILED-STAGE"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  include_lines: ['F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*S\s*T\s*A\s*G\s*E']
+  tags: ["AUTOMATION", "AUTOMATION-FINISHED-STAGE"]
+
+- type: log
+  paths:
+     - ${automation.logdir}\service.log
+     - ${automation.logdir2}\service.log
+  exclude_lines: ['S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*R\s*U\s*N\s*N\s*E\s*R', 'S\s*T\s*A\s*R\s*T\s*I\s*N\s*G\s*S\s*T\s*A\s*G\s*E', 'F\s*A\s*I\s*L\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R', 'F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*R\s*U\s*N\s*N\s*E\s*R', 'F\s*A\s*I\s*L\s*E\s*D\s*S\s*T\s*A\s*G\s*E', 'F\s*I\s*N\s*I\s*S\s*H\s*E\s*D\s*S\s*T\s*A\s*G\s*E', '-\s*i\s*t\s*e\s*m\s*p\s*r\s*o\s*c\s*e\s*s\s*s\s*e\s*d\s*:']
   tags: ["AUTOMATION"]
 
 filebeat.config.modules:
@@ -51,16 +161,15 @@ setup.template.settings:
   index.number_of_shards: 1
 
 setup.kibana:
-  host: "172.16.85.101:5601"
+  host: "172.16.85.248:5601"
 
-output.elasticsearch:
-  hosts: ["172.16.85.101:9200", "172.16.85.107:9200"]
-  loadbalance: true
 
-# If you want to use logstash as output
-# output.logstash:
-# The Logstash hosts
-# hosts: ["172.16.85.248:5044"]
+#output.elasticsearch:
+#  hosts: ["172.16.85.248:9200"]
+
+output.logstash:
+  hosts: ["localhost:5044"]
+
 
 processors:
 - decode_json_fields:
@@ -72,6 +181,26 @@ processors:
     max_depth: 20
     target: "automation"
     overwrite_keys: true
+
+- add_fields:
+    when:
+      contains:
+        log.flags: "multiline"
+    target: "nuix"
+    fields:
+      multiline: "MULTILINE"
+- add_tags:
+    when:
+      contains:
+        log.flags: "multiline"
+    tags: ["MULTILINE"]
+    target: ""
+
+- add_locale:
+    when:
+     contains:
+       tags: "AUTOMATION"
+    format: abbreviation
 - timestamp:
     when:
      contains:

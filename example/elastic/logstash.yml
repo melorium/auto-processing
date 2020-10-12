@@ -1,0 +1,189 @@
+input {
+  beats {
+    port => 5044
+  }
+}
+
+
+filter {
+    if "MULTILINE" in [tags] {
+        grok {
+            match => {"message" => "%{TIMESTAMP_ISO8601:nuix_timestamp} %{NUMBER:nuix_timezone} \[%{DATA:nuix_source}] %{NUMBER:nuix_thread} %{LOGLEVEL:nuix_loglevel}%{SPACE}%{DATA:nuix_class} - (?<nuix_short_message>[\s\S]{0,30})%{DATA:nuix_second_short_message}\n(?m)%{GREEDYDATA:nuix_multilines}"}
+        }
+    } else if "AUTOMATION" in [tags]  {
+        grok {
+            match => {"message" => "%{LOGLEVEL:level}%{GREEDYDATA:log_message}"}
+        }
+    } else if "_grokparsefailure" in [tags]  {
+        grok {
+            match => {"message" => "%{GREEDYDATA:log_message}"}
+        }
+    } else if "OCR-LOG" in [tags]  {
+        grok {
+            match => {"message" => "%{GREEDYDATA:log_message}"}
+        }
+    } else if "ABBY-WORKER-LOG" in [tags]  {
+        grok {
+            match => {"message" => "%{GREEDYDATA:log_message}"}
+        }
+    } else {
+        grok {
+            match => {"message" => "%{TIMESTAMP_ISO8601:nuix_timestamp} %{NUMBER:nuix_timezone} \[%{DATA:nuix_source}] %{NUMBER:nuix_thread} %{LOGLEVEL:nuix_loglevel}%{SPACE}%{DATA:nuix_class} - %{GREEDYDATA:automation_status}"}
+        }
+    }
+
+     # Kolla så att runner-start finns med i taggen
+    if "NUIX-RUNNER-START" in [tags] {
+        # kör ett ruby-script på eventet
+        ruby {
+            code => '
+                # sätt ett nytt event som är en map kallad för nuix_log
+                event.set("[nuix_log]", {
+                    # Lägg till runner i mappen, som kommer från från eventet nuix_class (formaterat från grok-filtret)
+                    # ta bort prefix SCRIPT. och suffix .gen från denna
+                    "runner" => event.get("nuix_class").delete_prefix("SCRIPT.").delete_suffix(".gen"),
+                    # Lägg till path i mapppen (alltså vart loggen ligger)
+                    "path" => File.dirname(event.get("[log][file][path]")),
+                    # Lägg även till host i mappen
+                    "host" => event.get("[agent][hostname]"),
+                })
+            '
+        }
+        # Sen startar vi en aggregate
+        aggregate {
+            # Då behöver vi ett task-id för att veta vilka entries som ska behandlas
+            task_id => "%{[nuix_log][host]}"
+            # Då¨skapar vi en ny mapp i denna "task", med nyckeln path för loggen
+            # värdet för nyckeln är nuix_log entryt som vi skapar i ruby koden ovanför
+            code => "map[event.get('[nuix_log][path]')] = event.get('[nuix_log]')"
+            # skapas mappen med "create"
+            map_action => "create"
+#            push_previous_map_as_event => true
+            #timeout => 86400
+        }
+    # När vi får ett runner-end entry ska vi avsluta aggregate (tasken)
+    # för att ta bort mappen som har skapats
+    } else if "NUIX-RUNNER-END" in [tags] {
+        # ruby script för att sätta nuix_log.host
+        ruby {
+            code => 'event.set("[nuix_log][host]", event.get("[agent][hostname]"))'
+        }
+        # starta aggregate
+        aggregate {
+            # sätt task_id till hostname
+            task_id => "%{[nuix_log][host]}"
+            # kör ruby-script
+            code => '
+                # skapa variabel för log_dir
+                log_dir = File.dirname(event.get("[log][file][path]"))
+                # kolla så att log_dir finns i mappen
+                if map.key?(log_dir)
+                    # sätt fältet nuix_log från värdet i map med nyckeln log_dir
+                    event.set("[nuix_log]", map[log_dir])
+                end
+            '
+            # uppdatera mappen
+#            push_previous_map_as_event => true
+            timeout => 86400
+            inactivity_timeout => 300
+            map_action => "update"
+            # avsluta tasken (eftersom vi har fått runner-end)
+            end_of_task => true
+        }
+    } else {
+        # ruby script för att sätta nuix_log.host
+        ruby {
+            code => 'event.set("[nuix_log][host]", event.get("[agent][hostname]"))'
+        }
+        # starta aggregate
+        aggregate {
+            # sätt task_id till hostname
+            task_id => "%{[nuix_log][host]}"
+            # kör ruby-script
+            code => '
+                # sätt log_dir som variabel
+                log_dir = File.dirname(event.get("[log][file][path]"))
+                # loopa sex gånger (eftersom det finns sub-directories till vissa loggar)
+                 (0..6).each do |i|
+                    # om log_dir finns i mappen
+                    if map.key?(log_dir)
+                        # sätt fältet nuix_log från värdet i map med nyckeln log_dir
+                        event.set("[nuix_log]", map[log_dir])
+                        # breakea loopen
+                        break
+                    end
+                    # ta bort sub-directory från variabeln
+                    # om den inte finns med i mappen
+                    log_dir = File.dirname(log_dir)
+                end
+            '
+            # uppdatera mappen
+            map_action => "update"
+#            timeout => 86400
+#            inactivity_timeout => 300
+        }
+    }
+}
+
+filter {
+    if [automation][msg] == "STARTING RUNNER" {
+        mutate { add_tag => ["runnerStarted"] }
+    } else if [automation][msg] == "FINISHED RUNNER" {
+        mutate { add_tag => ["runnerFinished"] }
+    } else if [automation][msg] == "STARTING STAGE" {
+        mutate { add_tag => ["stageStarted"] }
+    } else if [automation][msg] == "FINISHED STAGE" {
+        mutate { add_tag => ["stageFinished"] }
+    }
+
+    mutate { add_field => { "runner" => "%{[automation][runner]}" } }
+
+    elapsed {
+      start_tag => "runnerStarted"
+      end_tag => "runnerFinished"
+#      periodic_flush => true
+      unique_id_field => "runner"
+      timeout => 86400
+      new_event_on_match => false
+    }
+
+    elapsed {
+      start_tag => "stageStarted"
+      end_tag => "stageFinished"
+#      periodic_flush => true
+      unique_id_field => "runner"
+      timeout => 86400
+      new_event_on_match => false
+    }
+
+    if [elapsed_time] {
+         ruby {
+            code => '
+                event.set("[elapsed_hr]", Time.at(event.get("[elapsed_time]")).utc.strftime("%H:%M:%S"))
+            '
+        }
+    }
+}
+
+
+#filter {
+#  ruby {
+#        code => 'event.set("duration_time", event.get("elapsed_time")) / 60 rescue nil'
+#         code => 'event.set("lowercase_field", event.get("message").downcase)'
+#    }
+#}
+
+filter {
+  mutate {
+    remove_tag => [ "beats_input_codec_plain_applied" ]
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://172.16.85.248:9200"]
+    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+    #user => "elastic"
+    #password => "changeme"
+  }
+}
